@@ -87,6 +87,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/daily-checks/create', [WarehouseController::class, 'createDailyCheck'])->name('dailyChecks.create');
         Route::post('/daily-checks', [WarehouseController::class, 'storeDailyCheck'])->name('dailyChecks.store');
         Route::get('/daily-checks/{dailyCheck}', [WarehouseController::class, 'showDailyCheck'])->name('dailyChecks.show');
+
+        // Warehouse Reports, PDF Printing & Archival System
+        Route::get('/reports', [WarehouseController::class, 'reports'])->name('reports');
+        Route::get('/reports/print', [WarehouseController::class, 'printReport'])->name('reports.print');
+        Route::post('/reports/archive', [WarehouseController::class, 'archiveReport'])->name('reports.archive');
+        Route::get('/reports/archived', [WarehouseController::class, 'archivedReports'])->name('reports.archived');
+        Route::get('/reports/archived/{archivedReport}', [WarehouseController::class, 'showArchivedReport'])->name('reports.showArchived');
+        Route::post('/factories', [WarehouseController::class, 'storeFactory'])->name('factories.store');
     });
 
     // 4. Purchasing & Supply Chain Department

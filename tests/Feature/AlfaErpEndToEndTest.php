@@ -427,4 +427,110 @@ class AlfaErpEndToEndTest extends TestCase
         $this->assertNotNull($latestCustomReq);
         $this->assertStringContainsString('أبو طارق', $latestCustomReq->notes);
     }
+
+    /**
+     * Test Warehouse 8-in-1 Reports Engine, Pinned Factories, Printing & Dual Signature Archival
+     */
+    public function test_warehouse_reports_system_and_dual_signature_archiving(): void
+    {
+        $warehouseUser = User::where('role', 'warehouse')->first() ?? User::where('role', 'owner')->first();
+
+        // 1. Check reports index renders with all 8 report options
+        $response = $this->actingAs($warehouseUser)->get('/warehouse/reports');
+        $response->assertStatus(200);
+        $response->assertSee('تقارير المخازن وحركة الأصناف');
+        $response->assertSee('إجمالي استلام صنف خامات');
+        $response->assertSee('إجمالي صرف صنف خامات');
+        $response->assertSee('استلام منتج تام من الإنتاج');
+        $response->assertSee('تسليم منتج تام لعميل (س)');
+        $response->assertSee('استلام خامات من مورد (س)');
+        $response->assertSee('استلام خامات من المصانع الثلاثة');
+        $response->assertSee('تسليم خامات للمصانع الثلاثة');
+
+        // 2. Test quick filter tabs for different reports
+        $reportTypes = [
+            'raw_receipt_by_item',
+            'raw_issue_by_item',
+            'finished_receipt_production',
+            'finished_delivery_customer',
+            'raw_receipt_supplier',
+            'raw_receipt_factories',
+            'raw_issue_factories',
+        ];
+
+        foreach ($reportTypes as $type) {
+            $repResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports?report_type=' . $type);
+            $repResponse->assertStatus(200);
+        }
+
+        // 3. Test Printable View with Dual Signatures and WhatsApp integration
+        $printResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports/print?report_type=raw_receipt_factories');
+        $printResponse->assertStatus(200);
+        $printResponse->assertSee('شركة الفا ايجبت للتعبئة والتغليف الحديث');
+        $printResponse->assertSee('إقرار المطابقة والاعتماد الرسمي');
+        $printResponse->assertSee('توقيع أمين / مدير المخازن المختص');
+        $printResponse->assertSee('توقيع الجهة الموجه إليها التقرير (المستلم)');
+        $printResponse->assertSee('canvas_wm');
+        $printResponse->assertSee('canvas_rc');
+        $printResponse->assertSee('مشاركة عبر واتساب');
+
+        // 4. Test Archiving Report with Touchpad Signatures & Meta
+        $archiveData = [
+            'report_type' => 'raw_receipt_factories',
+            'title' => 'تقرير إجمالي استلام خامات من مصنع أوتوباك',
+            'from_date' => now()->startOfMonth()->toDateString(),
+            'to_date' => now()->toDateString(),
+            'item_type' => 'raw_material',
+            'party_type' => 'factory',
+            'party_name' => 'مصنع أوتوباك (AutoPack)',
+            'total_quantity' => 50000,
+            'total_value' => 75000,
+            'warehouse_manager_signature' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'recipient_name' => 'م. أحمد حمدي - فني خطوط أوتوباك',
+            'recipient_title' => 'مشرف إنتاج مصنع أوتوباك',
+            'recipient_phone' => '01012345678',
+            'recipient_signature' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'notes' => 'تمت المطابقة والاستلام بالكامل دون أي فروقات.',
+        ];
+
+        $archiveResponse = $this->actingAs($warehouseUser)->post('/warehouse/reports/archive', $archiveData);
+        $archiveResponse->assertRedirect();
+
+        $archivedReport = \App\Models\WarehouseArchivedReport::latest('id')->first();
+        $this->assertNotNull($archivedReport);
+        $this->assertStringStartsWith('WH-REP-', $archivedReport->report_number);
+        $this->assertEquals('م. أحمد حمدي - فني خطوط أوتوباك', $archivedReport->recipient_name);
+        $this->assertTrue($archivedReport->is_signed_by_recipient);
+
+        // 5. Test Archived Reports List & Show View
+        $listResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports/archived');
+        $listResponse->assertStatus(200);
+        $listResponse->assertSee($archivedReport->report_number);
+
+        $showResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports/archived/' . $archivedReport->id);
+        $showResponse->assertStatus(200);
+        $showResponse->assertSee($archivedReport->report_number);
+        $showResponse->assertSee('م. أحمد حمدي - فني خطوط أوتوباك');
+
+        // 6. Test Dynamic Factory Addition ("مع إمكانية زيادة العدد")
+        $factoryData = [
+            'name' => 'مصنع النيل للتغليف الدوائي',
+            'code' => 'FAC-NILE-01',
+            'type' => 'internal',
+            'supervisor_name' => 'م. سامح فهمي',
+            'operating_cost_per_hour' => 120,
+            'description' => 'خطوط تعبئة وتغليف معقمة',
+        ];
+
+        $factoryResponse = $this->actingAs($warehouseUser)->post('/warehouse/factories', $factoryData);
+        $factoryResponse->assertRedirect();
+        $this->assertDatabaseHas('factories', [
+            'code' => 'FAC-NILE-01',
+            'name' => 'مصنع النيل للتغليف الدوائي',
+        ]);
+
+        // Clean up test factory and archived report to keep database pristine
+        Factory::where('code', 'FAC-NILE-01')->delete();
+        $archivedReport->delete();
+    }
 }

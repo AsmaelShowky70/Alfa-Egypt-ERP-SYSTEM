@@ -321,6 +321,14 @@
                         <i class="fa-solid fa-clipboard-list text-amber-600"></i>
                         <span>الجرد اليومي للمخزن</span>
                     </a>
+                    <a href="{{ route('warehouse.reports') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('warehouse.reports*') && !request()->routeIs('warehouse.reports.archived*') ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-chart-pie text-amber-600"></i>
+                        <span>تقارير المخازن وحركة الأصناف</span>
+                    </a>
+                    <a href="{{ route('warehouse.reports.archived') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('warehouse.reports.archived*') ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-box-archive text-amber-600"></i>
+                        <span>أرشيف التقارير المعتمدة</span>
+                    </a>
                 </div>
                 @endif
 

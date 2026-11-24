@@ -52,4 +52,30 @@ class StockMovement extends Model
             default => $this->type,
         };
     }
+
+    public function getPartyDisplayNameAttribute(): string
+    {
+        if ($this->reference_type === 'factory') {
+            $factory = Factory::find($this->reference_id);
+            $name = $factory ? $factory->name : 'مصنع خارجي/داخلي';
+
+            return $this->received_or_delivered_by ? "{$name} ({$this->received_or_delivered_by})" : $name;
+        }
+
+        if ($this->reference_type === 'supplier') {
+            $supplier = Supplier::find($this->reference_id);
+            $name = $supplier ? $supplier->name : 'مورد خامات';
+
+            return $this->received_or_delivered_by ? "{$name} ({$this->received_or_delivered_by})" : $name;
+        }
+
+        if ($this->reference_type === 'customer') {
+            $customer = Customer::find($this->reference_id);
+            $name = $customer ? $customer->name : 'عميل';
+
+            return $this->received_or_delivered_by ? "{$name} ({$this->received_or_delivered_by})" : $name;
+        }
+
+        return $this->received_or_delivered_by ?? 'غير محدد';
+    }
 }
