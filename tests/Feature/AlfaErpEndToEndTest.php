@@ -294,11 +294,14 @@ class AlfaErpEndToEndTest extends TestCase
         $this->assertDatabaseHas('machines', ['code' => 'MCH-CVR-04']);
         $this->assertDatabaseHas('machines', ['code' => 'MCH-GLV-PCK02']);
 
+        $productAbu = \App\Models\Product::where('code', 'PROD-CVR-4IN1-ABU')->first();
+
         // Test the exact management formula from Image 3:
         // Speed: 45 pieces/min -> Theoretical: 45 * 60 = 2700 pieces/hour
         // Actual Production: 2250 pieces -> Efficiency: (2250 / 2700) * 100 = 83.33%
         $reportData = [
             'machine_id' => $machine->id,
+            'product_id' => $productAbu ? $productAbu->id : null,
             'operator_name' => 'مشغل وردية الصباح',
             'report_date' => now()->toDateString(),
             'hour_slot' => '16:00 - 17:00',
@@ -320,5 +323,18 @@ class AlfaErpEndToEndTest extends TestCase
         $this->assertNotNull($savedReport);
         $this->assertEquals(83.33, (float)$savedReport->efficiency_rate);
         $this->assertNotNull($savedReport->ai_smart_recommendation);
+        $this->assertEquals($productAbu?->id, $savedReport->product_id);
+
+        // Step 6: Test Operations Material Requisitions & Confirming Receipt from Warehouse
+        $respReqIndex = $this->actingAs($opsUser)->get('/operations/requisitions');
+        $respReqIndex->assertOk();
+
+        $testRequisition = \App\Models\MaterialRequisition::first();
+        if ($testRequisition) {
+            $testRequisition->update(['status' => 'issued']);
+            $respConfirm = $this->actingAs($opsUser)->post('/operations/requisitions/' . $testRequisition->id . '/confirm-receipt');
+            $respConfirm->assertRedirect();
+            $this->assertEquals('received', $testRequisition->fresh()->status);
+        }
     }
 }

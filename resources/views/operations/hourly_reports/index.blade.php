@@ -136,6 +136,35 @@
                     </div>
                 </div>
 
+                @php
+                    $activeProd = $rep->active_product;
+                @endphp
+                @if($activeProd)
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-3">
+                            <img src="{{ $activeProd->image_url }}" alt="{{ $activeProd->name }}" class="w-14 h-14 object-cover rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:scale-105 transition flex-shrink-0" onclick="openImageModal('{{ $activeProd->image_url }}')">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] bg-red-600 text-white font-black px-2 py-0.5 rounded">الصنف: {{ $activeProd->code }}</span>
+                                    <b class="text-slate-900 font-extrabold text-sm">{{ $activeProd->name }}</b>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-1 mt-1 text-[10px]">
+                                    <span class="text-slate-400 font-bold ml-1">محتويات الكوڤير (BOM):</span>
+                                    @foreach($activeProd->boms as $bom)
+                                        <span class="bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-700 font-semibold shadow-xs">
+                                            {{ $bom->rawMaterial?->name }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="openImageModal('{{ $activeProd->image_url }}')" class="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 bg-white border border-slate-200 rounded-xl hover:shadow transition">
+                            <i class="fa-regular fa-image"></i>
+                            <span>صورة محتويات الكوڤير</span>
+                        </button>
+                    </div>
+                @endif
+
                 <!-- 4 Metrics Grid -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
                     <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100">
@@ -216,6 +245,41 @@
                                 <option value="{{ $m->id }}" data-speed="{{ $m->belt_speed_m_min }}">{{ $m->name }} ({{ $m->code }})</option>
                             @endforeach
                         </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">الصنف / المنتج الجاري تشغيله *</label>
+                        <select name="product_id" id="report_product_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                            <option value="">-- اختر الصنف لمعاينة الصورة والمحتويات --</option>
+                            @foreach($products as $prod)
+                                @php
+                                    $bomNames = $prod->boms->map(fn($b) => $b->rawMaterial?->name)->filter()->values();
+                                @endphp
+                                <option value="{{ $prod->id }}" 
+                                    data-image="{{ $prod->image_url }}" 
+                                    data-name="{{ $prod->name }}" 
+                                    data-code="{{ $prod->code }}" 
+                                    data-components="{{ json_encode($bomNames) }}"
+                                    {{ $loop->first ? 'selected' : '' }}>
+                                    {{ $prod->name }} ({{ $prod->code }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Live Product Spec & Visual Card Preview -->
+                    <div id="product_preview_box" class="sm:col-span-2 bg-gradient-to-r from-zinc-950 via-slate-900 to-zinc-900 text-white rounded-2xl p-3.5 border border-zinc-700 shadow-md">
+                        <div class="flex items-start gap-4">
+                            <img id="preview_prod_img" src="" alt="Product" class="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl border border-zinc-600 shadow cursor-pointer hover:scale-105 transition flex-shrink-0" onclick="openImageModal(this.src)">
+                            <div class="space-y-1.5 flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] bg-red-600 text-white font-black px-2 py-0.5 rounded">الصنف النشط</span>
+                                    <h4 id="preview_prod_name" class="font-black text-xs sm:text-sm text-zinc-100 truncate"></h4>
+                                </div>
+                                <p class="text-[11px] text-zinc-400 font-bold">محتويات ومواصفات الكوڤير المعتمدة:</p>
+                                <div id="preview_prod_components" class="flex flex-wrap gap-1 text-[10px]"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -392,6 +456,73 @@
         }
         
         calculateOEE();
+
+        // Product specification card live preview in modal
+        const productSelect = document.getElementById('report_product_id');
+        function updateProductPreview() {
+            const previewBox = document.getElementById('product_preview_box');
+            const img = document.getElementById('preview_prod_img');
+            const name = document.getElementById('preview_prod_name');
+            const compContainer = document.getElementById('preview_prod_components');
+
+            if (!productSelect || !productSelect.value) {
+                if (previewBox) previewBox.classList.add('hidden');
+                return;
+            }
+
+            const opt = productSelect.options[productSelect.selectedIndex];
+            const imgSrc = opt.getAttribute('data-image');
+            const prodName = opt.getAttribute('data-name');
+            let components = [];
+            try {
+                components = JSON.parse(opt.getAttribute('data-components') || '[]');
+            } catch(e) {}
+
+            if (img && imgSrc) img.src = imgSrc;
+            if (name && prodName) name.innerText = prodName;
+            if (compContainer) {
+                compContainer.innerHTML = '';
+                components.forEach(c => {
+                    const pill = document.createElement('span');
+                    pill.className = 'bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded text-zinc-300 font-semibold';
+                    pill.innerText = c;
+                    compContainer.appendChild(pill);
+                });
+            }
+            if (previewBox) previewBox.classList.remove('hidden');
+        }
+
+        if (productSelect) {
+            productSelect.addEventListener('change', updateProductPreview);
+            updateProductPreview();
+        }
     });
+
+    // Image Zoom Modal Functions
+    function openImageModal(src) {
+        if (!src) return;
+        const modal = document.getElementById('imagePreviewModal');
+        const img = document.getElementById('modalPreviewImage');
+        if (img) img.src = src;
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeImageModal() {
+        const modal = document.getElementById('imagePreviewModal');
+        if (modal) modal.classList.add('hidden');
+    }
 </script>
+
+<!-- Full Image Zoom Modal -->
+<div id="imagePreviewModal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4" onclick="closeImageModal()">
+    <div class="relative max-w-2xl w-full bg-zinc-950 rounded-3xl p-3 shadow-2xl border border-zinc-800 overflow-hidden" onclick="event.stopPropagation()">
+        <button onclick="closeImageModal()" class="absolute top-4 left-4 z-10 w-9 h-9 rounded-full bg-black/80 hover:bg-black text-white flex items-center justify-center transition border border-white/20">
+            <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+        <img id="modalPreviewImage" src="" alt="Specification Visual" class="w-full h-auto max-h-[82vh] object-contain rounded-2xl">
+        <div class="p-3 text-center text-xs font-bold text-zinc-300 border-t border-zinc-800/80 mt-2">
+            بطاقة المواصفات التعريفية المعتمدة لمكونات الصنف — الفا ايجبت للصناعات المتطورة
+        </div>
+    </div>
+</div>
 @endsection

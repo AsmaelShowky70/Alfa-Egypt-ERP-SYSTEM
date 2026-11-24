@@ -252,7 +252,13 @@ class OperationsController extends Controller
         $rawDate = $request->get('date');
         $machineId = $request->get('machine_id');
 
-        $query = HourlyMachineReport::with(['machine.factory', 'factory']);
+        $query = HourlyMachineReport::with([
+            'machine.factory',
+            'factory',
+            'product.boms.rawMaterial',
+            'productionOrder.product.boms.rawMaterial',
+            'productionOrder.salesOrder.customer'
+        ]);
 
         // Determine selected date:
         // If explicit date is given (and not empty or 'all'):
@@ -288,6 +294,11 @@ class OperationsController extends Controller
 
         $machines = Machine::where('status', '!=', 'scrapped')->get();
         $factories = Factory::all();
+        $products = Product::with('boms.rawMaterial')->get();
+        $activeProductionOrders = ProductionOrder::with(['product.boms.rawMaterial', 'salesOrder.customer'])
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->latest()
+            ->get();
 
         // Summary calculations
         $summaryQuery = HourlyMachineReport::query();
@@ -309,6 +320,8 @@ class OperationsController extends Controller
             'reports',
             'machines',
             'factories',
+            'products',
+            'activeProductionOrders',
             'date',
             'selectedDate',
             'machineId',
@@ -329,11 +342,12 @@ class OperationsController extends Controller
             'units_produced' => 'required|numeric|min:0',
             'belt_speed_m_min' => 'required|numeric|min:0.01',
             'efficiency_rate' => 'nullable|numeric|min:0',
+            'product_id' => 'nullable|exists:products,id',
+            'production_order_id' => 'nullable|exists:production_orders,id',
             'waste_units' => 'nullable|numeric|min:0',
             'downtime_minutes' => 'nullable|integer|min:0',
             'downtime_reason' => 'nullable|string|max:255',
             'actions_taken' => 'nullable|string',
-            'production_order_id' => 'nullable|exists:production_orders,id',
         ]);
 
         $machine = Machine::findOrFail($validated['machine_id']);
@@ -361,10 +375,18 @@ class OperationsController extends Controller
             $machine->belt_speed_m_min
         );
 
+        $prodId = $validated['product_id'] ?? null;
+        $woId = $validated['production_order_id'] ?? null;
+        if (!$prodId && $woId) {
+            $wo = ProductionOrder::find($woId);
+            $prodId = $wo ? $wo->product_id : null;
+        }
+
         HourlyMachineReport::create([
             'machine_id' => $machine->id,
             'factory_id' => $machine->factory_id,
-            'production_order_id' => $validated['production_order_id'] ?? null,
+            'production_order_id' => $woId,
+            'product_id' => $prodId,
             'operator_name' => $validated['operator_name'],
             'report_date' => $validated['report_date'],
             'hour_slot' => $validated['hour_slot'],
@@ -384,5 +406,94 @@ class OperationsController extends Controller
             'date' => $validated['report_date'],
             'machine_id' => $machine->id,
         ])->with('success', 'تم تسجيل تقرير الساعة (' . $validated['hour_slot'] . ') بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة ' . $eff . '% وتحديث المؤشرات للإدارة العليا.');
+    }
+
+    // ================= MATERIAL REQUISITIONS & RECEIPT =================
+    public function requisitions(): View
+    {
+        $requisitions = MaterialRequisition::with([
+            'productionOrder.salesOrder.customer',
+            'productionOrder.product.boms.rawMaterial',
+            'items.rawMaterial',
+            'requestedByUser',
+            'issuedByUser',
+            'receivedByUser'
+        ])->latest()->paginate(15);
+
+        $activeProductionOrders = ProductionOrder::with(['product.boms.rawMaterial', 'factory'])
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->latest()
+            ->get();
+
+        $rawMaterials = RawMaterial::orderBy('name')->get();
+
+        $pendingCount = MaterialRequisition::where('status', 'requested')->count();
+        $inTransitCount = MaterialRequisition::where('status', 'issued')->count();
+        $receivedCount = MaterialRequisition::where('status', 'received')->count();
+
+        return view('operations.requisitions.index', compact(
+            'requisitions',
+            'activeProductionOrders',
+            'rawMaterials',
+            'pendingCount',
+            'inTransitCount',
+            'receivedCount'
+        ));
+    }
+
+    public function storeRequisition(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'production_order_id' => 'required|exists:production_orders,id',
+            'items' => 'required|array|min:1',
+            'items.*.raw_material_id' => 'required|exists:raw_materials,id',
+            'items.*.quantity' => 'required|numeric|min:0.1',
+            'notes' => 'nullable|string',
+        ]);
+
+        $productionOrder = ProductionOrder::findOrFail($validated['production_order_id']);
+
+        $mrNumber = 'MR-' . date('Y') . '-' . str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
+        $materialReq = MaterialRequisition::create([
+            'req_number' => $mrNumber,
+            'production_order_id' => $productionOrder->id,
+            'status' => 'requested',
+            'requested_by' => Auth::id(),
+            'requested_at' => now(),
+            'notes' => $validated['notes'] ?? ('طلب صرف مستلزمات إنتاج لأمر التشغيل ' . $productionOrder->order_number),
+        ]);
+
+        foreach ($validated['items'] as $item) {
+            $rm = RawMaterial::find($item['raw_material_id']);
+            $needed = (float)$item['quantity'];
+            $stock = $rm ? (float)$rm->current_stock : 0;
+            $missing = max(0, $needed - $stock);
+
+            MaterialRequisitionItem::create([
+                'material_requisition_id' => $materialReq->id,
+                'raw_material_id' => $item['raw_material_id'],
+                'quantity_requested' => $needed,
+                'quantity_issued' => 0,
+                'quantity_missing' => $missing,
+                'unit_cost' => $rm ? $rm->unit_cost : 0,
+            ]);
+        }
+
+        return back()->with('success', 'تم إرسال طلب صرف الخامات (' . $mrNumber . ') إلى المخزن المركزي بنجاح وبانتظار موافقة وصرف أمين المخزن.');
+    }
+
+    public function confirmReceipt(MaterialRequisition $materialRequisition): RedirectResponse
+    {
+        $materialRequisition->update([
+            'status' => 'received',
+            'received_by' => Auth::id(),
+            'received_at' => now(),
+        ]);
+
+        if ($materialRequisition->productionOrder) {
+            $materialRequisition->productionOrder->update(['status' => 'ready']);
+        }
+
+        return back()->with('success', 'تم تأكيد استلام الخامات على خط الإنتاج بالمصنع بنجاح (' . $materialRequisition->req_number . ') وبدء الجاهزية للتشغيل.');
     }
 }

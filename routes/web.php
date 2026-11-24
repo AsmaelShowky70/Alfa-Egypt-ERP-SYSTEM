@@ -56,6 +56,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/work-orders', [OperationsController::class, 'workOrders'])->name('workOrders');
         Route::get('/work-orders/{productionOrder}', [OperationsController::class, 'showWorkOrder'])->name('workOrders.show');
         Route::post('/work-orders/{productionOrder}/status', [OperationsController::class, 'updateWorkOrderStatus'])->name('workOrders.status');
+        Route::get('/requisitions', [OperationsController::class, 'requisitions'])->name('requisitions');
+        Route::post('/requisitions', [OperationsController::class, 'storeRequisition'])->name('requisitions.store');
+        Route::post('/requisitions/{materialRequisition}/confirm-receipt', [OperationsController::class, 'confirmReceipt'])->name('requisitions.confirmReceipt');
     });
 
     // 3. Central Warehouse Department

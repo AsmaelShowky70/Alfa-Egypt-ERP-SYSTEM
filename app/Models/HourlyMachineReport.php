@@ -14,6 +14,7 @@ class HourlyMachineReport extends Model
         'machine_id',
         'factory_id',
         'production_order_id',
+        'product_id',
         'operator_name',
         'report_date',
         'hour_slot',
@@ -51,6 +52,16 @@ class HourlyMachineReport extends Model
     public function productionOrder(): BelongsTo
     {
         return $this->belongsTo(ProductionOrder::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function getActiveProductAttribute(): ?Product
+    {
+        return $this->product ?? $this->productionOrder?->product;
     }
 
     public function createdByUser(): BelongsTo

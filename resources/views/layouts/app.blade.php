@@ -260,6 +260,20 @@
                             {{ \App\Models\ProductionOrder::whereIn('status', ['ready', 'in_progress'])->count() }}
                         </span>
                     </a>
+                    <a href="{{ route('operations.requisitions') }}" class="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('operations.requisitions*') ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-boxes-stacked text-blue-600"></i>
+                            <span>طلبات واستلام الخامات</span>
+                        </div>
+                        @php
+                            $inTransit = \App\Models\MaterialRequisition::where('status', 'issued')->count();
+                        @endphp
+                        @if($inTransit > 0)
+                            <span class="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                {{ $inTransit }} جاهز للاستلام
+                            </span>
+                        @endif
+                    </a>
                     <a href="{{ route('operations.hourlyReports') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('operations.hourlyReports*') ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
                         <i class="fa-solid fa-clock-rotate-left text-blue-600"></i>
                         <span>تقارير الماكينات كل ساعة</span>
