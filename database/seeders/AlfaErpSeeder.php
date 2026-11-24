@@ -367,8 +367,8 @@ class AlfaErpSeeder extends Seeder
                 'code' => 'MCH-CVR-01',
                 'model' => 'AlphaPack FlowWrap 400X',
                 'serial_number' => 'AP-2024-8891',
-                'rated_speed_units_per_hour' => 3600.00, // 3600 كوفير في الساعة
-                'belt_speed_m_min' => 28.50,
+                'rated_speed_units_per_hour' => 3600.00, // 3600 كوفير في الساعة (60 ق/دقيقة)
+                'belt_speed_m_min' => 60.00,
                 'status' => 'running',
                 'maintenance_due_date' => Carbon::now()->addDays(20),
             ],
@@ -378,10 +378,32 @@ class AlfaErpSeeder extends Seeder
                 'code' => 'MCH-CVR-02',
                 'model' => 'AlphaPack FlowWrap 500Pro',
                 'serial_number' => 'AP-2025-1002',
-                'rated_speed_units_per_hour' => 4200.00,
-                'belt_speed_m_min' => 32.00,
+                'rated_speed_units_per_hour' => 4200.00, // 70 ق/دقيقة
+                'belt_speed_m_min' => 70.00,
                 'status' => 'running',
                 'maintenance_due_date' => Carbon::now()->addDays(35),
+            ],
+            [
+                'factory_id' => $factories['FAC-COUVERT']->id,
+                'name' => 'خط تغليف الكوڤير الآلي ألفا-3',
+                'code' => 'MCH-CVR-03',
+                'model' => 'AlphaPack FlowWrap 600Pro',
+                'serial_number' => 'AP-2025-1103',
+                'rated_speed_units_per_hour' => 4500.00, // 75 ق/دقيقة
+                'belt_speed_m_min' => 75.00,
+                'status' => 'running',
+                'maintenance_due_date' => Carbon::now()->addDays(40),
+            ],
+            [
+                'factory_id' => $factories['FAC-COUVERT']->id,
+                'name' => 'خط تغليف الكوڤير الآلي ألفا-4',
+                'code' => 'MCH-CVR-04',
+                'model' => 'AlphaPack FlowWrap Ultra 700',
+                'serial_number' => 'AP-2025-1104',
+                'rated_speed_units_per_hour' => 4800.00, // 80 ق/دقيقة
+                'belt_speed_m_min' => 80.00,
+                'status' => 'running',
+                'maintenance_due_date' => Carbon::now()->addDays(45),
             ],
             [
                 'factory_id' => $factories['FAC-GLOVE-CUT']->id,
@@ -390,7 +412,7 @@ class AlfaErpSeeder extends Seeder
                 'model' => 'Rotary Die-Cut Master 200',
                 'serial_number' => 'RDC-2023-441',
                 'rated_speed_units_per_hour' => 8000.00, // 8000 قطعة بالساعة
-                'belt_speed_m_min' => 45.00,
+                'belt_speed_m_min' => 133.00,
                 'status' => 'running',
                 'maintenance_due_date' => Carbon::now()->addDays(14),
             ],
@@ -401,9 +423,20 @@ class AlfaErpSeeder extends Seeder
                 'model' => 'BagSeal Auto-100',
                 'serial_number' => 'BSA-2024-009',
                 'rated_speed_units_per_hour' => 120.00, // 120 باكت بالساعة
-                'belt_speed_m_min' => 15.00,
+                'belt_speed_m_min' => 20.00,
                 'status' => 'running',
                 'maintenance_due_date' => Carbon::now()->addDays(18),
+            ],
+            [
+                'factory_id' => $factories['FAC-GLOVE-PACK']->id,
+                'name' => 'ماكينة باكت وتغليف الجوانتيات الآلي 2',
+                'code' => 'MCH-GLV-PCK02',
+                'model' => 'BagSeal Auto-200 Heavy Duty',
+                'serial_number' => 'BSA-2025-018',
+                'rated_speed_units_per_hour' => 150.00, // 150 باكت بالساعة
+                'belt_speed_m_min' => 25.00,
+                'status' => 'running',
+                'maintenance_due_date' => Carbon::now()->addDays(30),
             ],
             [
                 'factory_id' => $factories['FAC-WIPES']->id,
@@ -412,7 +445,7 @@ class AlfaErpSeeder extends Seeder
                 'model' => 'SachetWipe Pure 300',
                 'serial_number' => 'SWP-2024-551',
                 'rated_speed_units_per_hour' => 5000.00, // 5000 منديل معطر بالساعة
-                'belt_speed_m_min' => 35.00,
+                'belt_speed_m_min' => 83.00,
                 'status' => 'running',
                 'maintenance_due_date' => Carbon::now()->addDays(25),
             ],

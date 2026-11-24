@@ -72,7 +72,7 @@
             </div>
             <div>
                 <span class="text-slate-400 block mb-0.5">سرعة السير القياسية:</span>
-                <strong class="text-slate-800 font-mono">{{ $productionOrder->machine?->belt_speed_m_min ?? 25.0 }} م/دقيقة</strong>
+                <strong class="text-slate-800 font-mono">{{ $productionOrder->machine?->belt_speed_m_min ?? 45.0 }} قطعة/دقيقة</strong>
             </div>
             <div>
                 <span class="text-slate-400 block mb-0.5">مدير التشغيل:</span>

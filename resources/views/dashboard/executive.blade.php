@@ -175,7 +175,7 @@
 
                         <div class="grid grid-cols-4 gap-2 text-center text-[11px] bg-white p-2 rounded-xl border border-slate-100">
                             <div><span class="text-slate-400 block">الإنتاج</span><b class="text-slate-800">{{ number_format($rep->units_produced) }} ق</b></div>
-                            <div><span class="text-slate-400 block">سرعة السير</span><b class="text-slate-800">{{ $rep->belt_speed_m_min }} م/د</b></div>
+                            <div><span class="text-slate-400 block">سرعة الماكينة</span><b class="text-slate-800">{{ $rep->belt_speed_m_min }} ق/د</b></div>
                             <div><span class="text-slate-400 block">الهادر</span><b class="{{ $rep->waste_units > 20 ? 'text-rose-600' : 'text-slate-800' }}">{{ $rep->waste_units }} ق</b></div>
                             <div><span class="text-slate-400 block">التوقف</span><b class="{{ $rep->downtime_minutes > 0 ? 'text-amber-600' : 'text-slate-800' }}">{{ $rep->downtime_minutes }} د</b></div>
                         </div>

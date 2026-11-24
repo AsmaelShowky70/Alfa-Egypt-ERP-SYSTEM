@@ -96,8 +96,8 @@
                         <strong class="text-slate-700">{{ number_format($mach->rated_speed_units_per_hour) }} ق/ساعة</strong>
                     </div>
                     <div>
-                        <span class="text-slate-400 font-sans text-[11px] block">سرعة السير:</span>
-                        <strong class="text-slate-700">{{ $mach->belt_speed_m_min }} م/دقيقة</strong>
+                        <span class="text-slate-400 font-sans text-[11px] block">سرعة الماكينة:</span>
+                        <strong class="text-slate-700">{{ $mach->belt_speed_m_min }} قطعة/دقيقة</strong>
                     </div>
                 </div>
             </div>

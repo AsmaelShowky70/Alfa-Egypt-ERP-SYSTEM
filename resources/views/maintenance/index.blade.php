@@ -118,7 +118,7 @@
                             {{ number_format($mach->rated_speed_units_per_hour) }} <span class="text-xs text-slate-400 font-sans">وحدة/ساعة</span>
                         </td>
                         <td class="py-4 px-6 font-mono font-bold text-slate-700 text-sm">
-                            {{ $mach->belt_speed_m_min }} <span class="text-xs text-slate-400 font-sans">م/دقيقة</span>
+                            {{ $mach->belt_speed_m_min }} <span class="text-xs text-slate-400 font-sans">قطعة/دقيقة</span>
                         </td>
                         <td class="py-4 px-6">
                             @if($mach->status == 'running')
@@ -319,8 +319,8 @@
                             <input type="number" name="rated_speed_units_per_hour" required min="1" placeholder="3000" class="input-field font-mono">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">سرعة السير (متر/دقيقة) <span class="text-rose-500">*</span></label>
-                            <input type="number" step="0.1" name="belt_speed_m_min" required min="0.1" placeholder="25.0" class="input-field font-mono">
+                            <label class="block text-xs font-bold text-slate-700 mb-1">سرعة الماكينة (قطعة/دقيقة) <span class="text-rose-500">*</span></label>
+                            <input type="number" step="0.1" name="belt_speed_m_min" required min="0.1" placeholder="45.0" class="input-field font-mono">
                         </div>
                     </div>
                     <div>

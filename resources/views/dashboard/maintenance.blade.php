@@ -102,8 +102,8 @@
                             <span class="font-black text-slate-800">{{ number_format($m->rated_speed_units_per_hour) }} ق/س</span>
                         </div>
                         <div>
-                            <span class="text-[10px] text-slate-400 block">سرعة السير</span>
-                            <span class="font-black text-slate-800">{{ $m->belt_speed_m_min }} م/د</span>
+                            <span class="text-[10px] text-slate-400 block">سرعة الماكينة</span>
+                            <span class="font-black text-slate-800">{{ $m->belt_speed_m_min }} ق/د</span>
                         </div>
                     </div>
                 </div>

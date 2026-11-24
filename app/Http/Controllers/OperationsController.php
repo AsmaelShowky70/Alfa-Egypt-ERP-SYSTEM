@@ -243,8 +243,8 @@ class OperationsController extends Controller
             'report_date' => 'required|date',
             'hour_slot' => 'required|string|max:50',
             'units_produced' => 'required|numeric|min:0',
-            'belt_speed_m_min' => 'required|numeric|min:0',
-            'efficiency_rate' => 'required|numeric|min:0|max:150',
+            'belt_speed_m_min' => 'required|numeric|min:0.01',
+            'efficiency_rate' => 'nullable|numeric|min:0',
             'waste_units' => 'nullable|numeric|min:0',
             'downtime_minutes' => 'nullable|integer|min:0',
             'downtime_reason' => 'nullable|string|max:255',
@@ -253,10 +253,20 @@ class OperationsController extends Controller
         ]);
 
         $machine = Machine::findOrFail($validated['machine_id']);
+        $unitsProduced = (float)$validated['units_produced'];
+        $speed = (float)$validated['belt_speed_m_min']; // Machine speed in pieces per minute (قطعة / دقيقة)
         $waste = (float)($validated['waste_units'] ?? 0);
         $down = (int)($validated['downtime_minutes'] ?? 0);
-        $speed = (float)$validated['belt_speed_m_min'];
-        $eff = (float)$validated['efficiency_rate'];
+
+        // Management Formula:
+        // Theoretical Hourly Capacity = Speed (pieces/min) * 60 minutes
+        // Machine Efficiency Rate (%) = (Actual Units Produced / Theoretical Hourly Capacity) * 100
+        $theoreticalCapacity = $speed * 60;
+        if ($theoreticalCapacity > 0) {
+            $eff = round(($unitsProduced / $theoreticalCapacity) * 100, 2);
+        } else {
+            $eff = (float)($validated['efficiency_rate'] ?? 0);
+        }
 
         // Generate smart decision recommendation
         $rec = HourlyMachineReport::generateRecommendation(
@@ -274,7 +284,7 @@ class OperationsController extends Controller
             'operator_name' => $validated['operator_name'],
             'report_date' => $validated['report_date'],
             'hour_slot' => $validated['hour_slot'],
-            'units_produced' => $validated['units_produced'],
+            'units_produced' => $unitsProduced,
             'belt_speed_m_min' => $speed,
             'efficiency_rate' => $eff,
             'waste_units' => $waste,
@@ -286,6 +296,6 @@ class OperationsController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        return back()->with('success', 'تم تسجيل تقرير الساعة ورفعه للإدارة العليا بنجاح مع التوصية التشغيلية الذكية.');
+        return back()->with('success', 'تم حساب كفاءة الماكينة أوتوماتيكياً (' . $eff . '%) وتسجيل تقرير الساعة ورفعه للإدارة العليا بنجاح.');
     }
 }

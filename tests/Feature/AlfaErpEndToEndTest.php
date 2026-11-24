@@ -289,15 +289,21 @@ class AlfaErpEndToEndTest extends TestCase
             $respLeadTime->assertRedirect();
         }
 
-        // Step 5: Hourly Machine Report submission with AI recommendation
+        // Step 5: Hourly Machine Report submission with automatic efficiency calculation and new machines
+        $this->assertDatabaseHas('machines', ['code' => 'MCH-CVR-03']);
+        $this->assertDatabaseHas('machines', ['code' => 'MCH-CVR-04']);
+        $this->assertDatabaseHas('machines', ['code' => 'MCH-GLV-PCK02']);
+
+        // Test the exact management formula from Image 3:
+        // Speed: 45 pieces/min -> Theoretical: 45 * 60 = 2700 pieces/hour
+        // Actual Production: 2250 pieces -> Efficiency: (2250 / 2700) * 100 = 83.33%
         $reportData = [
             'machine_id' => $machine->id,
             'operator_name' => 'مشغل وردية الصباح',
             'report_date' => now()->toDateString(),
-            'hour_slot' => '11:00 - 12:00',
-            'units_produced' => 2850,
-            'belt_speed_m_min' => 24.5,
-            'efficiency_rate' => 95.0,
+            'hour_slot' => '16:00 - 17:00',
+            'units_produced' => 2250,
+            'belt_speed_m_min' => 45.0,
             'waste_units' => 12,
             'downtime_minutes' => 0,
             'downtime_reason' => null,
@@ -308,9 +314,11 @@ class AlfaErpEndToEndTest extends TestCase
         $respHourly->assertRedirect();
 
         $savedReport = \App\Models\HourlyMachineReport::where('machine_id', $machine->id)
-            ->where('hour_slot', '11:00 - 12:00')
+            ->where('hour_slot', '16:00 - 17:00')
+            ->latest('id')
             ->first();
         $this->assertNotNull($savedReport);
+        $this->assertEquals(83.33, (float)$savedReport->efficiency_rate);
         $this->assertNotNull($savedReport->ai_smart_recommendation);
     }
 }

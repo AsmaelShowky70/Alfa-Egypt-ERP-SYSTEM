@@ -129,8 +129,8 @@
                         <b class="text-slate-900 font-black text-sm">{{ number_format($rep->units_produced) }} قطعة</b>
                     </div>
                     <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                        <span class="text-[10px] text-slate-400 block mb-0.5">سرعة السير المقاسة</span>
-                        <b class="text-blue-700 font-black text-sm">{{ $rep->belt_speed_m_min }} متر/دقيقة</b>
+                        <span class="text-[10px] text-slate-400 block mb-0.5">سرعة الماكينة (بالقطعة)</span>
+                        <b class="text-blue-700 font-black text-sm">{{ $rep->belt_speed_m_min }} قطعة/دقيقة</b>
                     </div>
                     <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                         <span class="text-[10px] text-slate-400 block mb-0.5">الهادر التالف</span>
@@ -197,9 +197,9 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">الماكينة *</label>
-                        <select name="machine_id" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                        <select name="machine_id" id="report_machine_id" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
                             @foreach($machines as $m)
-                                <option value="{{ $m->id }}">{{ $m->name }} ({{ $m->code }})</option>
+                                <option value="{{ $m->id }}" data-speed="{{ $m->belt_speed_m_min }}">{{ $m->name }} ({{ $m->code }})</option>
                             @endforeach
                         </select>
                     </div>
@@ -231,35 +231,70 @@
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">عدد القطع المنتجة في هذه الساعة *</label>
-                        <input type="number" name="units_produced" placeholder="مثال: 3600" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-blue-700 focus:ring-1 focus:ring-blue-600 outline-none">
+                        <input type="number" name="units_produced" id="report_units_produced" value="2250" placeholder="مثال: 2250" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-blue-700 focus:ring-1 focus:ring-blue-600 outline-none">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">سرعة السير (متر / دقيقة) *</label>
-                        <input type="number" step="0.1" name="belt_speed_m_min" value="28.5" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-700">سرعة الماكينة (قطعة / دقيقة) *</label>
+                            <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded">بالقطعة</span>
+                        </div>
+                        <input type="number" step="0.1" name="belt_speed_m_min" id="report_speed" value="45.0" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none" placeholder="مثال: 45">
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">كفاءة الماكينة OEE (%) *</label>
-                        <input type="number" step="0.1" name="efficiency_rate" value="95.0" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-emerald-700 focus:ring-1 focus:ring-blue-600 outline-none">
+                    <div class="sm:col-span-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-700">كفاءة الماكينة OEE (%) *</label>
+                            <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                <i class="fa-solid fa-calculator text-[10px]"></i>
+                                <span>حساب تلقائي بالمعادلة المعتمدة</span>
+                            </span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" step="0.01" name="efficiency_rate" id="report_efficiency" value="83.33" readonly required class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-black text-emerald-700 focus:outline-none cursor-not-allowed">
+                            <span class="absolute left-3 top-2 text-xs font-bold text-slate-400">%</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Breakdown of Equation (معادلة إدارة التشغيل) -->
+                    <div class="sm:col-span-2 bg-blue-50/80 border border-blue-200 rounded-2xl p-3.5 text-xs text-blue-950 space-y-2">
+                        <div class="flex items-center justify-between font-bold border-b border-blue-200/60 pb-1.5">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-square-root-variable text-blue-600"></i>
+                                <span>المعادلة المعتمدة لكفاءة الماكينة:</span>
+                            </span>
+                            <span class="text-[11px] font-mono text-blue-700 dir-ltr">(الإنتاج الفعلي ÷ الطاقة النظرية) × 100</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2.5 text-center pt-0.5">
+                            <div class="bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                <span class="text-[10px] text-slate-500 block mb-0.5">الطاقة النظرية (السرعة × 60)</span>
+                                <b id="calc_theoretical" class="text-blue-700 font-mono text-xs font-black">2,700 ق/س</b>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                <span class="text-[10px] text-slate-500 block mb-0.5">الإنتاج الفعلي بالساعة</span>
+                                <b id="calc_actual" class="text-slate-800 font-mono text-xs font-black">2,250 قطعة</b>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-blue-100 shadow-sm">
+                                <span class="text-[10px] text-slate-500 block mb-0.5">الكفاءة المحققة (OEE)</span>
+                                <b id="calc_eff_result" class="text-emerald-600 font-mono text-xs font-black">83.33%</b>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">عدد القطع التالفة / الهادر</label>
                         <input type="number" name="waste_units" value="0" min="0" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
                     </div>
-                </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">مدة التوقف (بالدقائق إن وجدت)</label>
-                        <input type="number" name="downtime_minutes" value="0" min="0" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
+                        <input type="number" name="downtime_minutes" value="0" min="0" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
                     </div>
+                </div>
 
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">سبب التوقف</label>
-                        <input type="text" name="downtime_reason" placeholder="مثال: تغيير بكرة سيلوفان، نظافة فكوك لحام..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
-                    </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">سبب التوقف</label>
+                    <input type="text" name="downtime_reason" placeholder="مثال: تغيير بكرة سيلوفان، نظافة فكوك لحام..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
                 </div>
 
                 <div>
@@ -278,4 +313,68 @@
     </div>
 
 </div>
+
+<script>
+    function calculateOEE() {
+        const speedInput = document.getElementById('report_speed');
+        const unitsInput = document.getElementById('report_units_produced');
+        const effInput = document.getElementById('report_efficiency');
+        
+        const speed = parseFloat(speedInput ? speedInput.value : 0) || 0;
+        const units = parseFloat(unitsInput ? unitsInput.value : 0) || 0;
+        
+        // Theoretical Hourly Capacity = Speed (pieces/min) * 60 minutes
+        const theoreticalHour = speed * 60;
+        
+        let efficiency = 0;
+        if (theoreticalHour > 0) {
+            efficiency = (units / theoreticalHour) * 100;
+        }
+        
+        const formattedEff = efficiency.toFixed(2);
+        if (effInput) effInput.value = formattedEff;
+        
+        // Update live breakdown display
+        const calcTheo = document.getElementById('calc_theoretical');
+        const calcAct = document.getElementById('calc_actual');
+        const calcRes = document.getElementById('calc_eff_result');
+        
+        if (calcTheo) calcTheo.innerText = theoreticalHour.toLocaleString('en-US') + ' ق/س';
+        if (calcAct) calcAct.innerText = units.toLocaleString('en-US') + ' قطعة';
+        if (calcRes) {
+            calcRes.innerText = formattedEff + '%';
+            if (efficiency >= 90) {
+                calcRes.className = 'text-emerald-600 font-mono text-xs font-black';
+            } else if (efficiency >= 75) {
+                calcRes.className = 'text-amber-600 font-mono text-xs font-black';
+            } else {
+                calcRes.className = 'text-rose-600 font-mono text-xs font-black';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const speedInput = document.getElementById('report_speed');
+        const unitsInput = document.getElementById('report_units_produced');
+        const machineSelect = document.getElementById('report_machine_id');
+        
+        if (speedInput && unitsInput) {
+            speedInput.addEventListener('input', calculateOEE);
+            unitsInput.addEventListener('input', calculateOEE);
+        }
+        
+        if (machineSelect && speedInput) {
+            machineSelect.addEventListener('change', function() {
+                const opt = this.options[this.selectedIndex];
+                const speed = opt.getAttribute('data-speed');
+                if (speed && parseFloat(speed) > 0) {
+                    speedInput.value = parseFloat(speed);
+                    calculateOEE();
+                }
+            });
+        }
+        
+        calculateOEE();
+    });
+</script>
 @endsection
