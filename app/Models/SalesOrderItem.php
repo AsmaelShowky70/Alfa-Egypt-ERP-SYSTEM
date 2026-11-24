@@ -40,4 +40,14 @@ class SalesOrderItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function getTotalPriceAttribute(): float
+    {
+        return (float) ($this->subtotal ?? ($this->quantity * $this->unit_price));
+    }
+
+    public function getCustomNotesAttribute(): ?string
+    {
+        return $this->customization_notes;
+    }
 }

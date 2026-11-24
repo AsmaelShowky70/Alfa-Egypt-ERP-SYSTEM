@@ -336,5 +336,59 @@ class AlfaErpEndToEndTest extends TestCase
             $respConfirm->assertRedirect();
             $this->assertEquals('received', $testRequisition->fresh()->status);
         }
+
+        // Step 7: Multi-Item Sales Order (Abu Tarek with 3 items: 4-in-1, 2-in-1, 1-in-1)
+        $p1 = Product::where('code', 'PROD-CVR-4IN1-ABU')->first() ?? $product;
+        $p2 = Product::where('code', 'PROD-CVR-2IN1')->first() ?? $product;
+        $p3 = Product::where('code', 'PROD-CVR-1IN1')->first() ?? $product;
+
+        $multiOrderData = [
+            'customer_id' => $customer->id,
+            'order_date' => now()->toDateString(),
+            'target_delivery_date' => now()->addDays(6)->toDateString(),
+            'client_notes' => 'طلبية مجمعة لكافة أصناف كشري أبو طارق الثلاثة',
+            'items' => [
+                [
+                    'product_id' => $p1->id,
+                    'quantity' => 50000,
+                    'unit_price' => 2.15,
+                    'notes' => 'كوڤير 4 في 1 مطبوع باللوجو الأزرق',
+                ],
+                [
+                    'product_id' => $p2->id,
+                    'quantity' => 30000,
+                    'unit_price' => 1.75,
+                    'notes' => 'كوڤير 2 في 1 معلقة ومنديل',
+                ],
+                [
+                    'product_id' => $p3->id,
+                    'quantity' => 20000,
+                    'unit_price' => 1.45,
+                    'notes' => 'كوڤير 1 في 1 معلقة مفردة مغلفة',
+                ],
+            ],
+        ];
+
+        $respMulti = $this->actingAs($salesUser)->post('/sales/orders', $multiOrderData);
+        $respMulti->assertRedirect();
+
+        $multiOrder = SalesOrder::with('items')->where('customer_id', $customer->id)->latest('id')->first();
+        $this->assertNotNull($multiOrder);
+        $this->assertCount(3, $multiOrder->items);
+        $this->assertEquals(100000, $multiOrder->items->sum('quantity'));
+
+        // Schedule Multi-Item Order in Operations
+        $scheduleMultiData = [
+            'factory_id' => $factory->id,
+            'machine_id' => $machine->id,
+            'operations_lead_time_days' => 4,
+            'notes' => 'جدولة تصنيع كافة أصناف العميل',
+        ];
+
+        $respMultiSched = $this->actingAs($opsUser)->post('/operations/schedule/' . $multiOrder->id, $scheduleMultiData);
+        $respMultiSched->assertRedirect();
+
+        $workOrdersCount = ProductionOrder::where('sales_order_id', $multiOrder->id)->count();
+        $this->assertEquals(3, $workOrdersCount);
     }
 }

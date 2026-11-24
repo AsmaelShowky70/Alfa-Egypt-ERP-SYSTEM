@@ -64,101 +64,123 @@ class OperationsController extends Controller
         $startDate = Carbon::now();
         $targetEndDate = Carbon::now()->addDays($leadTimeDays);
 
-        // First item and planning details
-        $firstItem = $order->items->first();
-        $productId = $firstItem ? $firstItem->product_id : Product::first()->id;
-        $plannedQty = $firstItem ? (float)$firstItem->quantity : 1000;
+        $items = $order->items->isNotEmpty() ? $order->items : collect([
+            (object)[
+                'product_id' => Product::first()?->id,
+                'quantity' => 1000,
+                'customization_notes' => null,
+            ]
+        ]);
 
-        $woNumber = 'WO-' . date('Y') . '-' . str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+        $hasMissingOverall = false;
+        $totalMissingCount = 0;
+        $allMissingItems = [];
+        $createdWorkOrders = [];
+        $firstWorkOrder = null;
 
-        // 1. Automatic BOM stock check (No manual guessing of missing materials)
-        $product = Product::with('boms.rawMaterial')->find($productId);
-        $missingCount = 0;
-        $missingItems = [];
+        foreach ($items as $item) {
+            $productId = $item->product_id;
+            $plannedQty = (float)($item->quantity ?? 1000);
+            $product = Product::with('boms.rawMaterial')->find($productId);
 
-        if ($product) {
-            foreach ($product->boms as $bom) {
-                $rm = $bom->rawMaterial;
-                $needed = $plannedQty * (float)$bom->quantity_per_unit;
-                $currentStock = $rm ? (float)$rm->current_stock : 0;
-                $missing = max(0, $needed - $currentStock);
+            $woNumber = 'WO-' . date('Y') . '-' . str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
 
-                if ($missing > 0) {
-                    $missingCount++;
-                    $missingItems[] = [
+            // BOM check for this item
+            $itemMissingCount = 0;
+            if ($product) {
+                foreach ($product->boms as $bom) {
+                    $rm = $bom->rawMaterial;
+                    $needed = $plannedQty * (float)$bom->quantity_per_unit;
+                    $currentStock = $rm ? (float)$rm->current_stock : 0;
+                    $missing = max(0, $needed - $currentStock);
+
+                    if ($missing > 0) {
+                        $itemMissingCount++;
+                        if (!isset($allMissingItems[$bom->raw_material_id])) {
+                            $allMissingItems[$bom->raw_material_id] = [
+                                'raw_material_id' => $bom->raw_material_id,
+                                'missing' => 0,
+                                'unit_cost' => $rm ? (float)$rm->unit_cost : 0,
+                            ];
+                        }
+                        $allMissingItems[$bom->raw_material_id]['missing'] += $missing;
+                    }
+                }
+            }
+
+            if ($itemMissingCount > 0) {
+                $hasMissingOverall = true;
+                $totalMissingCount += $itemMissingCount;
+            }
+
+            // Create Production Order (Work Order)
+            $productionOrder = ProductionOrder::create([
+                'order_number' => $woNumber,
+                'sales_order_id' => $order->id,
+                'factory_id' => $factory->id,
+                'product_id' => $productId,
+                'machine_id' => $machineId,
+                'planned_quantity' => $plannedQty,
+                'produced_quantity' => 0,
+                'scheduled_start_date' => $startDate,
+                'scheduled_end_date' => $targetEndDate,
+                'estimated_hours' => max(4, round($plannedQty / 3000, 1)),
+                'status' => ($itemMissingCount > 0) ? 'waiting_materials' : 'ready',
+                'operations_manager_id' => Auth::id(),
+                'instructions' => ($item->customization_notes ? ($item->customization_notes . ' | ') : '') . ($validated['notes'] ?? null),
+            ]);
+
+            if (!$firstWorkOrder) {
+                $firstWorkOrder = $productionOrder;
+            }
+            $createdWorkOrders[] = $productionOrder;
+
+            // Automatically create Material Requisition to Central Warehouse
+            $mrNumber = 'MR-' . date('Y') . '-' . str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
+            $materialReq = MaterialRequisition::create([
+                'req_number' => $mrNumber,
+                'production_order_id' => $productionOrder->id,
+                'status' => 'requested',
+                'requested_by' => Auth::id(),
+                'requested_at' => now(),
+                'notes' => 'طلب صرف مستلزمات إنتاج (' . ($product->name ?? 'صنف') . ') لأمر التشغيل ' . $woNumber . ' الخاص بطلبية ' . $order->order_number,
+            ]);
+
+            // Populate requisition items from BOM
+            if ($product) {
+                foreach ($product->boms as $bom) {
+                    $rm = $bom->rawMaterial;
+                    $needed = $plannedQty * (float)$bom->quantity_per_unit;
+                    $currentStock = $rm ? (float)$rm->current_stock : 0;
+                    $missing = max(0, $needed - $currentStock);
+
+                    MaterialRequisitionItem::create([
+                        'material_requisition_id' => $materialReq->id,
                         'raw_material_id' => $bom->raw_material_id,
-                        'needed' => $needed,
-                        'missing' => $missing,
-                        'unit_cost' => $rm ? (float)$rm->unit_cost : 0,
-                    ];
+                        'quantity_requested' => $needed,
+                        'quantity_issued' => 0,
+                        'quantity_missing' => $missing,
+                        'unit_cost' => $rm ? $rm->unit_cost : 0,
+                    ]);
                 }
             }
         }
 
-        $hasMissing = ($missingCount > 0);
-
-        // 2. Create Production Order (Work Order)
-        $productionOrder = ProductionOrder::create([
-            'order_number' => $woNumber,
-            'sales_order_id' => $order->id,
-            'factory_id' => $factory->id,
-            'product_id' => $productId,
-            'machine_id' => $machineId,
-            'planned_quantity' => $plannedQty,
-            'produced_quantity' => 0,
-            'scheduled_start_date' => $startDate,
-            'scheduled_end_date' => $targetEndDate,
-            'estimated_hours' => $leadTimeDays * 8, // 8 hours per day
-            'status' => $hasMissing ? 'waiting_materials' : 'ready',
-            'operations_manager_id' => Auth::id(),
-            'instructions' => $validated['notes'] ?? null,
-        ]);
-
-        // 3. Automatically create Material Requisition to Central Warehouse
-        $mrNumber = 'MR-' . date('Y') . '-' . str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
-        $materialReq = MaterialRequisition::create([
-            'req_number' => $mrNumber,
-            'production_order_id' => $productionOrder->id,
-            'status' => 'requested',
-            'requested_by' => Auth::id(),
-            'requested_at' => now(),
-            'notes' => 'طلب صرف مستلزمات الإنتاج لأمر التشغيل ' . $woNumber . ' الخاص بطلبية ' . $order->order_number,
-        ]);
-
-        // Populate requisition items from BOM
-        if ($product) {
-            foreach ($product->boms as $bom) {
-                $rm = $bom->rawMaterial;
-                $needed = $plannedQty * (float)$bom->quantity_per_unit;
-                $currentStock = $rm ? (float)$rm->current_stock : 0;
-                $missing = max(0, $needed - $currentStock);
-
-                MaterialRequisitionItem::create([
-                    'material_requisition_id' => $materialReq->id,
-                    'raw_material_id' => $bom->raw_material_id,
-                    'quantity_requested' => $needed,
-                    'quantity_issued' => 0,
-                    'quantity_missing' => $missing,
-                    'unit_cost' => $rm ? $rm->unit_cost : 0,
-                ]);
-            }
-        }
-
-        // 4. If missing materials exist, generate automated Purchase Requisition for Procurement
-        if ($hasMissing) {
+        // If missing materials exist across any product, generate automated Purchase Requisition
+        if ($hasMissingOverall) {
             $prNumber = 'PR-' . date('Y') . '-' . str_pad((PurchaseRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
             $pr = PurchaseRequisition::create([
                 'requisition_number' => $prNumber,
                 'sales_order_id' => $order->id,
-                'material_requisition_id' => $materialReq->id,
+                'material_requisition_id' => $firstWorkOrder ? MaterialRequisition::where('production_order_id', $firstWorkOrder->id)->first()?->id : null,
                 'factory_id' => $factory->id,
                 'warehouse_manager_id' => Auth::id(),
                 'status' => 'pending_procurement',
                 'required_date' => $targetEndDate,
-                'notes' => 'طلب شراء آلي تم توليده لوجود عجز خامات في أمر التشغيل ' . $woNumber,
+                'notes' => 'طلب شراء آلي تم توليده لوجود عجز خامات في أوامر تشغيل الطلبية ' . $order->order_number,
             ]);
 
-            foreach ($missingItems as $mItem) {
+            foreach ($allMissingItems as $mItem) {
                 PurchaseRequisitionItem::create([
                     'purchase_requisition_id' => $pr->id,
                     'raw_material_id' => $mItem['raw_material_id'],
@@ -172,20 +194,20 @@ class OperationsController extends Controller
             $order->update([
                 'operations_lead_time_days' => $leadTimeDays,
                 'status' => 'procurement_delayed',
-                'internal_notes' => 'تم فحص الخامات آلياً ورصد عجز في (' . $missingCount . ') خامات. تم إرسال طلب الشراء فوراً للمشتريات (' . $prNumber . ') لتحديد مدة التوريد.',
+                'internal_notes' => 'تم فحص خامات كافة أصناف الطلبية آلياً ورصد عجز في (' . $totalMissingCount . ') خامات. تم إرسال طلب الشراء فوراً للمشتريات (' . $prNumber . ') لتحديد مدة التوريد.',
             ]);
-            $msg = 'تم فحص الخامات آلياً ورصد عجز؛ تم إصدار أمر التشغيل (' . $woNumber . ') وتوليد طلب شراء فوري للمشتريات (' . $prNumber . ') دون الحاجة لإدخال يدوي.';
+            $msg = 'تم فحص خامات ' . count($createdWorkOrders) . ' أصناف آلياً ورصد عجز خامات؛ تم إصدار أوامر التشغيل وتوليد طلب شراء فوري للمشتريات (' . $prNumber . ').';
         } else {
             $order->update([
                 'operations_lead_time_days' => $leadTimeDays,
                 'confirmed_delivery_date' => $targetEndDate,
                 'status' => 'operations_scheduled',
-                'internal_notes' => 'الخامات متوفرة بالكامل بالمخزن؛ مدة التصنيع المحددة هي ' . $leadTimeDays . ' أيام عمل.',
+                'internal_notes' => 'الخامات متوفرة بالكامل بالمخزن لكافة أصناف الطلبية؛ مدة التصنيع المحددة هي ' . $leadTimeDays . ' أيام عمل.',
             ]);
-            $msg = 'الخامات متوفرة بالكامل! تم إصدار أمر التشغيل (' . $woNumber . ') وتأكيد جاهزية التصنيع بنجاح (' . $leadTimeDays . ' أيام).';
+            $msg = 'الخامات متوفرة بالكامل لكافة أصناف الطلبية (' . count($createdWorkOrders) . ' أصناف)! تم إصدار أوامر التشغيل بنجاح (' . $leadTimeDays . ' أيام).';
         }
 
-        return redirect()->route('operations.workOrders.show', $productionOrder->id)->with('success', $msg);
+        return redirect()->route('operations.workOrders.show', $firstWorkOrder->id)->with('success', $msg);
     }
 
     public function workOrders(): View

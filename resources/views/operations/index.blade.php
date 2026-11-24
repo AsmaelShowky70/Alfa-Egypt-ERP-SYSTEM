@@ -70,7 +70,14 @@
                             <img src="{{ $order->customer->logo_url }}" class="w-12 h-12 rounded-xl object-contain bg-white p-1 border border-slate-200 shadow-sm">
                             <div>
                                 <h3 class="font-black text-sm text-slate-900">{{ $order->customer->name }} ({{ $order->order_number }})</h3>
-                                <p class="text-xs text-slate-500">المطلوب: <b class="text-slate-800">{{ $order->items->first()?->product->name }}</b> بمقدار <b class="text-brand-700">{{ number_format($order->items->sum('quantity')) }} قطعة</b></p>
+                                <div class="flex flex-wrap gap-1.5 mt-1">
+                                    @foreach($order->items as $it)
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-800">
+                                            <span class="font-bold">{{ $it->product?->name }}</span>
+                                            <span class="text-brand-700 font-extrabold font-mono">({{ number_format($it->quantity) }} ق)</span>
+                                        </span>
+                                    @endforeach
+                                </div>
                             </div>
                         </div>
                         <span class="px-3 py-1 rounded-full text-xs font-bold border {{ $order->status_badge['color'] }}">
@@ -80,27 +87,46 @@
 
                     <!-- Material stock status -->
                     <div class="bg-white p-4 rounded-xl border border-slate-200/90 text-xs space-y-2">
-                        <p class="font-bold text-slate-700">موقف خامات الكوڤير (BOM) في المخزن المركزي:</p>
+                        <p class="font-bold text-slate-700">موقف خامات كافة أصناف الطلبية (BOM) في المخزن المركزي:</p>
+                        @php
+                            $orderRequiredMaterials = [];
+                            foreach($order->items as $it) {
+                                if ($it->product) {
+                                    foreach($it->product->boms as $bom) {
+                                        $rmId = $bom->raw_material_id;
+                                        $needed = $it->quantity * $bom->quantity_per_unit;
+                                        if (!isset($orderRequiredMaterials[$rmId])) {
+                                            $orderRequiredMaterials[$rmId] = [
+                                                'name' => $bom->rawMaterial->name ?? 'خامة',
+                                                'needed' => 0,
+                                                'avail' => $bom->rawMaterial->current_stock ?? 0,
+                                            ];
+                                        }
+                                        $orderRequiredMaterials[$rmId]['needed'] += $needed;
+                                    }
+                                }
+                            }
+                            $orderHasShortage = false;
+                            foreach($orderRequiredMaterials as $mat) {
+                                if ($mat['avail'] < $mat['needed']) {
+                                    $orderHasShortage = true;
+                                    break;
+                                }
+                            }
+                        @endphp
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                            @php
-                                $firstProd = $order->items->first()?->product;
-                            @endphp
-                            @if($firstProd)
-                                @foreach($firstProd->boms as $bom)
-                                    @php
-                                        $needed = $order->items->sum('quantity') * $bom->quantity_per_unit;
-                                        $avail = $bom->rawMaterial->current_stock ?? 0;
-                                        $isSufficient = $avail >= $needed;
-                                    @endphp
-                                    <div class="p-2.5 rounded-xl border {{ $isSufficient ? 'border-emerald-200 bg-emerald-50/50 text-emerald-900' : 'border-rose-200 bg-rose-50/60 text-rose-900' }}">
-                                        <div class="font-extrabold truncate">{{ $bom->rawMaterial->name ?? 'خامة' }}</div>
-                                        <div class="text-[11px] mt-0.5">{{ number_format($needed) }} مطلوب / {{ number_format($avail) }} بالمخزن</div>
-                                        <div class="text-[11px] font-black mt-1">
-                                            {!! $isSufficient ? '<i class="fa-solid fa-check text-emerald-600"></i> رصيد كافٍ' : '<i class="fa-solid fa-xmark text-rose-600"></i> عجز ' . number_format($needed - $avail) . ' ق' !!}
-                                        </div>
+                            @foreach($orderRequiredMaterials as $mId => $mat)
+                                @php
+                                    $isSufficient = $mat['avail'] >= $mat['needed'];
+                                @endphp
+                                <div class="p-2.5 rounded-xl border {{ $isSufficient ? 'border-emerald-200 bg-emerald-50/50 text-emerald-900' : 'border-rose-200 bg-rose-50/60 text-rose-900' }}">
+                                    <div class="font-extrabold truncate">{{ $mat['name'] }}</div>
+                                    <div class="text-[11px] mt-0.5">{{ number_format($mat['needed']) }} مطلوب / {{ number_format($mat['avail']) }} بالمخزن</div>
+                                    <div class="text-[11px] font-black mt-1">
+                                        {!! $isSufficient ? '<i class="fa-solid fa-check text-emerald-600"></i> رصيد كافٍ' : '<i class="fa-solid fa-xmark text-rose-600"></i> عجز ' . number_format($mat['needed'] - $mat['avail']) . ' ق' !!}
                                     </div>
-                                @endforeach
-                            @endif
+                                </div>
+                            @endforeach
                         </div>
                     </div>
 
@@ -130,20 +156,6 @@
                                 @endforeach
                             </select>
                         </div>
-
-                        @php
-                            $orderHasShortage = false;
-                            if($firstProd) {
-                                foreach($firstProd->boms as $b) {
-                                    $needed = $order->items->sum('quantity') * $b->quantity_per_unit;
-                                    $avail = $b->rawMaterial->current_stock ?? 0;
-                                    if ($avail < $needed) {
-                                        $orderHasShortage = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        @endphp
 
                         <div class="flex-1 min-w-[170px]">
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">موقف الخامات (فحص آلي بالمخزن)</label>
