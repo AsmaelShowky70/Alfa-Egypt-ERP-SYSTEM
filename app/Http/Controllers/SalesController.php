@@ -203,7 +203,35 @@ class SalesController extends Controller
     {
         $customers = Customer::where('status', true)->with('products')->get();
         $products = Product::where('status', true)->with('boms.rawMaterial')->get();
-        return view('sales.orders.create', compact('customers', 'products'));
+
+        $productsJson = $products->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'code' => $p->code,
+                'customer_id' => $p->customer_id,
+                'cost_price' => (float) $p->cost_price,
+                'selling_price' => (float) $p->selling_price,
+                'unit' => $p->unit ?? 'قطعة',
+                'category' => $p->category,
+                'boms' => $p->boms->map(fn ($b) => [
+                    'name' => $b->rawMaterial->name ?? 'خامة',
+                    'qty' => (float) $b->quantity_per_unit,
+                    'cost' => (float) $b->total_cost_per_unit,
+                ])->values(),
+            ];
+        })->values();
+
+        $customersJson = $customers->map(function ($c) {
+            return [
+                'id' => $c->id,
+                'name' => $c->name,
+                'code' => $c->code,
+                'products_count' => $c->products->count(),
+            ];
+        })->values();
+
+        return view('sales.orders.create', compact('customers', 'products', 'productsJson', 'customersJson'));
     }
 
     public function storeOrder(Request $request): RedirectResponse

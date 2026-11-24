@@ -165,32 +165,9 @@
 
 @push('scripts')
 <script>
-    const productsData = @json($products->map(function($p) {
-        return [
-            'id' => $p->id,
-            'name' => $p->name,
-            'code' => $p->code,
-            'customer_id' => $p->customer_id,
-            'cost_price' => (float)$p->cost_price,
-            'selling_price' => (float)$p->selling_price,
-            'unit' => $p->unit ?? 'قطعة',
-            'category' => $p->category,
-            'boms' => $p->boms->map(fn($b) => [
-                'name' => $b->rawMaterial->name ?? 'خامة',
-                'qty' => (float)$b->quantity_per_unit,
-                'cost' => (float)$b->total_cost_per_unit,
-            ]),
-        ];
-    }));
+    const productsData = @json($productsJson);
 
-    const customersData = @json($customers->map(function($c) {
-        return [
-            'id' => $c->id,
-            'name' => $c->name,
-            'code' => $c->code,
-            'products_count' => $c->products->count(),
-        ];
-    }));
+    const customersData = @json($customersJson);
 
     document.addEventListener("DOMContentLoaded", function () {
         const customerSelect = document.getElementById('customerSelect');

@@ -533,4 +533,15 @@ class AlfaErpEndToEndTest extends TestCase
         Factory::where('code', 'FAC-NILE-01')->delete();
         $archivedReport->delete();
     }
+
+    public function test_sales_order_create_view_renders_cleanly(): void
+    {
+        $salesUser = User::where('role', 'sales')->first();
+
+        $response = $this->actingAs($salesUser)->get('/sales/orders/create');
+
+        $response->assertStatus(200);
+        $response->assertSee('const productsData =', false);
+        $response->assertSee('const customersData =', false);
+    }
 }
