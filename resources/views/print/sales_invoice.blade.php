@@ -38,13 +38,11 @@
         <!-- Header -->
         <div class="flex items-start justify-between border-b-2 border-slate-800 pb-6 mb-6">
             <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-primary-950 text-amber-400 flex items-center justify-center font-black text-2xl shadow-md">
-                    α
-                </div>
+                <img src="{{ asset('images/alpha_symbol.png') }}" alt="Alfa Egypt" class="w-16 h-16 object-contain rounded-xl shadow-sm">
                 <div>
                     <h1 class="text-2xl font-black text-slate-900">شركة الفا ايجبت للتعبئة والتغليف</h1>
-                    <p class="text-xs text-primary-800 font-bold">ALFA EGYPT PACKAGING & DISPOSABLE CUTLERY</p>
-                    <p class="text-[11px] text-slate-500 mt-1">المنطقة الصناعية | س.ت: 182736 | ب.ض: 549-382-109 | https://alphaegypt1.com/</p>
+                    <p class="text-xs text-red-600 font-bold">ALPHA EGYPT FOR MODERN PACKAGING INDUSTRIES</p>
+                    <p class="text-[11px] text-slate-500 mt-1">المنطقة الصناعية | س.ت: 182736 | ب.ض: 549-382-109 | https://alphaegypterp.com</p>
                 </div>
             </div>
             <div class="text-left font-mono">

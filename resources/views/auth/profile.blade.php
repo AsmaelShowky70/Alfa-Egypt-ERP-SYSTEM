@@ -6,15 +6,15 @@
 <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- Header Card -->
-    <div class="bg-gradient-to-r from-brand-900 to-brand-700 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row items-center gap-6">
-        <img src="{{ $user->avatar_url }}" alt="{{ $user->name }}" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-4 border-emerald-400/60 shadow-lg">
+    <div class="bg-gradient-to-r from-black via-zinc-900 to-neutral-900 border-r-4 border-red-600 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row items-center gap-6">
+        <img src="{{ $user->avatar_url }}" alt="{{ $user->name }}" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-4 border-red-600 shadow-lg">
         <div class="space-y-1 text-center sm:text-right">
-            <div class="inline-block bg-emerald-500/20 text-emerald-300 text-xs px-3 py-1 rounded-full font-bold border border-emerald-400/30 mb-1">
+            <div class="inline-block bg-red-600/20 text-red-400 text-xs px-3 py-1 rounded-full font-bold border border-red-500/30 mb-1">
                 {{ $user->role_arabic_name }}
             </div>
             <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">{{ $user->name }}</h1>
-            <p class="text-emerald-100 text-sm font-medium">{{ $user->job_title }} — {{ $user->department }}</p>
-            <p class="text-xs text-emerald-200/80">{{ $user->email }} @if($user->phone)| {{ $user->phone }}@endif</p>
+            <p class="text-zinc-300 text-sm font-medium">{{ $user->job_title }} — {{ $user->department }}</p>
+            <p class="text-xs text-zinc-400">{{ $user->email }} @if($user->phone)| {{ $user->phone }}@endif</p>
         </div>
     </div>
 

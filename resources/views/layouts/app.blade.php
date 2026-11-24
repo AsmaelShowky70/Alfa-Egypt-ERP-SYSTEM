@@ -19,17 +19,22 @@
                 extend: {
                     colors: {
                         brand: {
-                            50: '#ecfdf5',
-                            100: '#d1fae5',
-                            500: '#10b981',
-                            600: '#008060',
-                            700: '#047857',
-                            800: '#065f46',
-                            900: '#064e3b',
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            200: '#fecaca',
+                            300: '#fca5a5',
+                            400: '#f87171',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                            800: '#991b1b',
+                            900: '#7f1d1d',
+                            950: '#450a0a',
                         },
-                        navy: {
-                            800: '#0f172a',
-                            900: '#090d16',
+                        dark: {
+                            800: '#18181b',
+                            900: '#0f172a',
+                            950: '#000000',
                         }
                     },
                     fontFamily: {
@@ -87,23 +92,21 @@
 <body class="min-h-screen text-slate-800 antialiased flex flex-col bg-slate-50">
 
     <!-- TOP HEADER -->
-    <header class="bg-brand-900 text-white shadow-md sticky top-0 z-40 no-print">
+    <header class="bg-black text-white shadow-xl sticky top-0 z-40 border-b-2 border-red-600 no-print">
         <div class="px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
             <!-- Brand & Toggle -->
             <div class="flex items-center gap-4">
-                <button id="sidebarToggle" class="text-slate-300 hover:text-white lg:hidden p-2 rounded-lg hover:bg-brand-800">
+                <button id="sidebarToggle" class="text-slate-300 hover:text-white lg:hidden p-2 rounded-lg hover:bg-neutral-800">
                     <i class="fa-solid fa-bars text-xl"></i>
                 </button>
-                <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-lg font-black text-xl tracking-wider">
-                        α
-                    </div>
+                <a href="{{ route('dashboard') }}" class="flex items-center gap-3 group">
+                    <img src="{{ asset('images/alpha_symbol_nav.png') }}" alt="الفا ايجبت" class="h-11 w-auto drop-shadow-[0_2px_8px_rgba(220,38,38,0.5)] group-hover:scale-105 transition">
                     <div>
-                        <div class="font-extrabold text-lg leading-tight tracking-wide flex items-center gap-2">
-                            <span>الفا ايجبت</span>
-                            <span class="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-semibold">ERP 2026</span>
+                        <div class="font-black text-lg leading-tight tracking-wide flex items-center gap-2">
+                            <span class="text-white">الفا ايجبت</span>
+                            <span class="text-[10px] bg-red-600/30 text-red-400 border border-red-500/50 px-2 py-0.5 rounded-full font-bold">ERP 2.0</span>
                         </div>
-                        <div class="text-[11px] text-emerald-200/80 font-medium">نظام التعبئة والتغليف والكوڤير المتكامل</div>
+                        <div class="text-[11px] text-slate-400 font-medium">لصناعة مواد التغليف الحديث والكوڤير المتكامل</div>
                     </div>
                 </a>
             </div>
@@ -115,7 +118,7 @@
                     $headerLossAlarms = \App\Models\SalesOrder::where('has_loss_alarm', true)->whereNotIn('status', ['completed', 'cancelled'])->count();
                 @endphp
                 @if($headerLossAlarms > 0)
-                    <a href="{{ route('finance.lossAlarms') }}" class="flex items-center gap-1.5 bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow animate-pulse hover:bg-rose-700 transition" title="إنذار: توجد عقود/طلبات تباع بسعر أقل من التكلفة!">
+                    <a href="{{ route('finance.lossAlarms') }}" class="flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow animate-pulse hover:bg-red-700 transition" title="إنذار: توجد عقود/طلبات تباع بسعر أقل من التكلفة!">
                         <i class="fa-solid fa-triangle-exclamation"></i>
                         <span>{{ $headerLossAlarms }} إنذار خسارة</span>
                     </a>
@@ -123,8 +126,8 @@
 
                 <!-- Fast Role Switcher Dropdown (for quick testing of any department) -->
                 <div class="relative" id="fastSwitcherDropdown">
-                    <button id="fastSwitcherBtn" type="button" class="flex items-center gap-2 bg-brand-800/80 hover:bg-brand-800 text-xs px-3 py-1.5 rounded-lg border border-brand-700 text-emerald-100 transition cursor-pointer select-none">
-                        <i class="fa-solid fa-repeat text-emerald-400"></i>
+                    <button id="fastSwitcherBtn" type="button" class="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-slate-200 transition cursor-pointer select-none">
+                        <i class="fa-solid fa-repeat text-red-500"></i>
                         <span class="hidden md:inline">التحويل السريع للدور:</span>
                         <span class="font-bold text-white">{{ Auth::user()->role_arabic_name }}</span>
                         <i class="fa-solid fa-chevron-down text-[10px]"></i>
@@ -138,7 +141,7 @@
                                 $allSystemUsers = \App\Models\User::where('status', true)->get();
                             @endphp
                             @foreach($allSystemUsers as $u)
-                                <a href="{{ route('login.fast', $u->id) }}" class="w-full text-right px-3 py-2 text-xs flex items-center justify-between hover:bg-emerald-50 transition {{ $u->id === Auth::id() ? 'bg-emerald-50/70 font-bold text-brand-700' : 'text-slate-700' }}">
+                                <a href="{{ route('login.fast', $u->id) }}" class="w-full text-right px-3 py-2 text-xs flex items-center justify-between hover:bg-red-50 transition {{ $u->id === Auth::id() ? 'bg-red-50 font-bold text-red-700' : 'text-slate-700' }}">
                                     <div class="flex items-center gap-2">
                                         <img src="{{ $u->avatar_url }}" class="w-6 h-6 rounded-full object-cover border border-slate-200">
                                         <div>
@@ -147,7 +150,7 @@
                                         </div>
                                     </div>
                                     @if($u->id === Auth::id())
-                                        <i class="fa-solid fa-check text-emerald-600 text-xs"></i>
+                                        <i class="fa-solid fa-check text-red-600 text-xs"></i>
                                     @endif
                                 </a>
                             @endforeach
@@ -157,28 +160,28 @@
 
                 <!-- User Dropdown -->
                 <div class="relative" id="userProfileDropdown">
-                    <button id="userProfileBtn" type="button" class="flex items-center gap-2 text-right p-1.5 rounded-xl hover:bg-brand-800 transition cursor-pointer select-none">
-                        <img src="{{ Auth::user()->avatar_url }}" alt="{{ Auth::user()->name }}" class="w-9 h-9 rounded-full object-cover border-2 border-emerald-400 shadow">
+                    <button id="userProfileBtn" type="button" class="flex items-center gap-2 text-right p-1.5 rounded-xl hover:bg-neutral-800 transition cursor-pointer select-none">
+                        <img src="{{ Auth::user()->avatar_url }}" alt="{{ Auth::user()->name }}" class="w-9 h-9 rounded-full object-cover border-2 border-red-600 shadow">
                         <div class="hidden sm:block text-right">
                             <div class="text-xs font-bold text-white leading-tight">{{ Auth::user()->name }}</div>
-                            <div class="text-[10px] text-emerald-300 font-medium">{{ Auth::user()->job_title }}</div>
+                            <div class="text-[10px] text-red-400 font-medium">{{ Auth::user()->job_title }}</div>
                         </div>
-                        <i class="fa-solid fa-ellipsis-vertical text-emerald-300 text-sm hidden sm:block"></i>
+                        <i class="fa-solid fa-ellipsis-vertical text-slate-400 text-sm hidden sm:block"></i>
                     </button>
                     <div id="userProfileMenu" class="dropdown-menu-custom absolute left-0 top-full pt-1.5 w-52 hidden z-50 text-slate-700">
                         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 py-2">
                             <div class="px-4 py-2 border-b border-slate-100">
                                 <p class="text-xs text-slate-400">مسجل كـ</p>
                                 <p class="text-sm font-bold text-slate-800 truncate">{{ Auth::user()->name }}</p>
-                                <span class="inline-block mt-1 text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold">{{ Auth::user()->role_arabic_name }}</span>
+                                <span class="inline-block mt-1 text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-semibold">{{ Auth::user()->role_arabic_name }}</span>
                             </div>
                             <a href="{{ route('profile') }}" class="block px-4 py-2 text-xs hover:bg-slate-50 transition flex items-center gap-2">
-                                <i class="fa-solid fa-id-card text-brand-600"></i>
+                                <i class="fa-solid fa-id-card text-red-600"></i>
                                 <span>الملف الشخصي وكلمة المرور</span>
                             </a>
                             @if(Auth::user()->isOwner() || Auth::user()->isGM())
                             <a href="{{ route('users.index') }}" class="block px-4 py-2 text-xs hover:bg-slate-50 transition flex items-center gap-2">
-                                <i class="fa-solid fa-users-gear text-blue-600"></i>
+                                <i class="fa-solid fa-users-gear text-slate-700"></i>
                                 <span>إدارة المستخدمين والصلاحيات</span>
                             </a>
                             @endif
@@ -408,9 +411,10 @@
             </div>
 
             <!-- Footer info in sidebar -->
-            <div class="p-4 border-t border-slate-200 text-xs text-slate-400 bg-slate-50 text-center">
-                <div class="font-bold text-slate-600">الفا ايجبت للتعبئة والتغليف</div>
-                <div>جميع الحقوق محفوظة © {{ date('Y') }}</div>
+            <div class="p-4 border-t border-slate-200 text-xs text-slate-500 bg-slate-50 text-center">
+                <img src="{{ asset('images/alpha_logo_nav.png') }}" class="h-8 mx-auto object-contain mb-1.5 drop-shadow-sm">
+                <div class="font-black text-slate-800">شركة الفا ايجبت</div>
+                <div class="text-[10px] text-slate-400">لصناعة مواد التغليف الحديث © {{ date('Y') }}</div>
             </div>
         </aside>
 

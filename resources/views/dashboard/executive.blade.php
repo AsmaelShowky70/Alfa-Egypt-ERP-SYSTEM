@@ -6,20 +6,20 @@
 <div class="space-y-8">
 
     <!-- Welcome & Executive Status -->
-    <div class="bg-gradient-to-r from-brand-900 via-brand-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+    <div class="bg-gradient-to-r from-black via-zinc-950 to-neutral-900 border-r-4 border-red-600 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
         <div class="space-y-2 text-center md:text-right">
-            <div class="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-3 py-1 rounded-full text-xs font-bold">
+            <div class="inline-flex items-center gap-2 bg-red-600/20 text-red-400 border border-red-500/30 px-3.5 py-1.5 rounded-full text-xs font-bold">
                 <i class="fa-solid fa-crown text-amber-400"></i>
                 لوحة القيادة الاستراتيجية — {{ Auth::user()->role_arabic_name }}
             </div>
             <h1 class="text-2xl sm:text-3xl font-extrabold">مرحباً، {{ Auth::user()->name }}</h1>
-            <p class="text-emerald-100/90 text-sm max-w-2xl leading-relaxed">
+            <p class="text-zinc-300 text-sm max-w-2xl leading-relaxed">
                 متابعة شاملة لأداء مصانع ألفا إيجبت الـ 6 المستقلة، مراكز الربحية وهامش الـ 14%، حركة المخازن المركزية، وتدفق أوامر التشغيل والتقارير اللحظية للماكينات.
             </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-            <a href="{{ route('factories.index') }}" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-brand-950 font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2">
+            <a href="{{ route('factories.index') }}" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition flex items-center gap-2">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>تقرير أرباح المصانع الـ 6</span>
             </a>

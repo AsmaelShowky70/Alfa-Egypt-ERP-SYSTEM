@@ -38,12 +38,10 @@
         <!-- Header -->
         <div class="flex items-start justify-between border-b-2 border-slate-800 pb-6 mb-6">
             <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-blue-950 text-blue-300 flex items-center justify-center font-black text-2xl shadow-md">
-                    α
-                </div>
+                <img src="{{ asset('images/alpha_symbol.png') }}" alt="Alfa Egypt" class="w-16 h-16 object-contain rounded-xl shadow-sm">
                 <div>
                     <h1 class="text-2xl font-black text-slate-900">شركة الفا ايجبت للتعبئة والتغليف</h1>
-                    <p class="text-xs text-blue-900 font-bold">إدارة المخازن المركزية - لجنة الجرد الدوري والمطابقة الفعلية</p>
+                    <p class="text-xs text-red-600 font-bold">إدارة المخازن المركزية - لجنة الجرد الدوري والمطابقة الفعلية</p>
                     <p class="text-[11px] text-slate-500 mt-1">جرد يومي للمواد الخام والمنتج التام وقطع الغيار | س.ت: 182736</p>
                 </div>
             </div>
