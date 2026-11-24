@@ -390,5 +390,41 @@ class AlfaErpEndToEndTest extends TestCase
 
         $workOrdersCount = ProductionOrder::where('sales_order_id', $multiOrder->id)->count();
         $this->assertEquals(3, $workOrdersCount);
+
+        // Step 8: Test Hourly Report Edit/Update & Custom Couvert Material Requisition
+        if ($savedReport) {
+            $updateHourlyData = [
+                'operator_name' => 'مشغل وردية الصباح - معدل',
+                'product_id' => $productAbu ? $productAbu->id : null,
+                'units_produced' => 2400,
+                'belt_speed_m_min' => 45.0, // 45 * 60 = 2700, Eff = (2400 / 2700) * 100 = 88.89%
+                'waste_units' => 5,
+                'downtime_minutes' => 5,
+                'downtime_reason' => 'نظافة سير سريعة',
+                'actions_taken' => 'تم استئناف الإنتاج بكفاءة عالية',
+            ];
+            $respUpdateHourly = $this->actingAs($opsUser)->post('/operations/hourly-reports/' . $savedReport->id . '/update', $updateHourlyData);
+            $respUpdateHourly->assertRedirect();
+            $this->assertEquals(2400, (float)$savedReport->fresh()->units_produced);
+            $this->assertEquals(88.89, (float)$savedReport->fresh()->efficiency_rate);
+        }
+
+        // Test Starting with Couvert and customized materials directly for warehouse
+        $customCouvertReqData = [
+            'product_id' => $p1->id,
+            'couvert_quantity' => 10000,
+            'items' => [
+                [
+                    'raw_material_id' => $rawMaterial->id,
+                    'quantity' => 12000, // custom increased quantity
+                ],
+            ],
+            'notes' => 'طلب خامات مخصص لكوڤير أبو طارق مع زيادة مناديل',
+        ];
+        $respCustomReq = $this->actingAs($opsUser)->post('/operations/requisitions', $customCouvertReqData);
+        $respCustomReq->assertRedirect();
+        $latestCustomReq = \App\Models\MaterialRequisition::latest('id')->first();
+        $this->assertNotNull($latestCustomReq);
+        $this->assertStringContainsString('أبو طارق', $latestCustomReq->notes);
     }
 }

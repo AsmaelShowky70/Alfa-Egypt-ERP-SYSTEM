@@ -133,6 +133,32 @@
                                 {{ $rep->efficiency_rate }}%
                             </span>
                         </div>
+
+                        @if($rep->is_editable)
+                            <button type="button" onclick="openEditReportModal({{ json_encode([
+                                'id' => $rep->id,
+                                'machine_name' => $rep->machine->name,
+                                'machine_code' => $rep->machine->code,
+                                'hour_slot' => $rep->hour_slot,
+                                'report_date' => $rep->report_date->format('Y-m-d'),
+                                'operator_name' => $rep->operator_name,
+                                'product_id' => $rep->product_id,
+                                'units_produced' => (float)$rep->units_produced,
+                                'belt_speed_m_min' => (float)$rep->belt_speed_m_min,
+                                'waste_units' => (float)$rep->waste_units,
+                                'downtime_minutes' => (int)$rep->downtime_minutes,
+                                'downtime_reason' => $rep->downtime_reason,
+                                'actions_taken' => $rep->actions_taken,
+                            ]) }})" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl border border-blue-200 transition flex items-center gap-1.5 shadow-xs">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                                <span>تعديل الساعة</span>
+                            </button>
+                        @else
+                            <span class="px-2.5 py-1 bg-slate-100 text-slate-500 font-bold text-xs rounded-xl border border-slate-200 flex items-center gap-1.5" title="التقرير مقفول بانتهاء اليوم">
+                                <i class="fa-solid fa-lock text-slate-400"></i>
+                                <span>مغلق لانتهاء اليوم</span>
+                            </span>
+                        @endif
                     </div>
                 </div>
 
@@ -511,6 +537,114 @@
         const modal = document.getElementById('imagePreviewModal');
         if (modal) modal.classList.add('hidden');
     }
+
+    // Edit Hourly Report Modal
+    function openEditReportModal(rep) {
+        if (!rep) return;
+        const modal = document.getElementById('editReportModal');
+        const form = document.getElementById('editReportForm');
+        
+        form.action = `{{ url('operations/hourly-reports') }}/${rep.id}/update`;
+        
+        document.getElementById('edit_machine_title').textContent = `${rep.machine_name} (${rep.machine_code}) — وردية ${rep.hour_slot} (${rep.report_date})`;
+        document.getElementById('edit_operator_name').value = rep.operator_name || '';
+        document.getElementById('edit_units_produced').value = rep.units_produced || '';
+        document.getElementById('edit_belt_speed').value = rep.belt_speed_m_min || '';
+        document.getElementById('edit_waste_units').value = rep.waste_units || 0;
+        document.getElementById('edit_downtime_minutes').value = rep.downtime_minutes || 0;
+        document.getElementById('edit_downtime_reason').value = rep.downtime_reason || '';
+        document.getElementById('edit_actions_taken').value = rep.actions_taken || '';
+
+        const prodSelect = document.getElementById('edit_product_id');
+        if (prodSelect) {
+            prodSelect.value = rep.product_id || '';
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeEditReportModal() {
+        const modal = document.getElementById('editReportModal');
+        if (modal) modal.classList.add('hidden');
+    }
+</script>
+
+<!-- Edit Hourly Report Modal -->
+<div id="editReportModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-blue-600"></i>
+                    <span>تعديل بيانات ساعة التشغيل</span>
+                </h3>
+                <p id="edit_machine_title" class="text-xs font-bold text-slate-500 mt-1"></p>
+            </div>
+            <button type="button" onclick="closeEditReportModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form id="editReportForm" method="POST" class="space-y-4">
+            @csrf
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">اسم الفني / المشغل المسجل *</label>
+                    <input type="text" name="operator_name" id="edit_operator_name" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">الصنف / المنتج الجاري تشغيله</label>
+                    <select name="product_id" id="edit_product_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                        <option value="">-- اختر الصنف --</option>
+                        @foreach($products as $prod)
+                            <option value="{{ $prod->id }}">{{ $prod->name }} ({{ $prod->code }})</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">عدد القطع المنتجة في هذه الساعة *</label>
+                    <input type="number" step="1" name="units_produced" id="edit_units_produced" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-900 focus:ring-1 focus:ring-blue-600 outline-none font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">سرعة الماكينة (قطعة / دقيقة) *</label>
+                    <input type="number" step="0.1" name="belt_speed_m_min" id="edit_belt_speed" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-blue-700 focus:ring-1 focus:ring-blue-600 outline-none font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">الهادر التالف (قطعة)</label>
+                    <input type="number" step="1" name="waste_units" id="edit_waste_units" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none font-mono">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">مدة التوقف (بالدقائق إن وجدت)</label>
+                    <input type="number" step="1" name="downtime_minutes" id="edit_downtime_minutes" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none font-mono">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">سبب التوقف (إن وجد)</label>
+                <input type="text" name="downtime_reason" id="edit_downtime_reason" placeholder="مثال: تغيير بكرة سيلوفان، نظافة فكوك لحام، عطل هواء..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">الإجراءات المتخذة وملاحظات التشغيل</label>
+                <textarea name="actions_taken" id="edit_actions_taken" rows="2" placeholder="ملاحظات فني التشغيل أو الإجراء الذي تم لتلافي التوقف..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeEditReportModal()" class="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50 transition">إلغاء</button>
+                <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>حفظ التعديلات وإعادة احتساب الكفاءة</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 </script>
 
 <!-- Full Image Zoom Modal -->

@@ -166,6 +166,27 @@ class OperationsController extends Controller
             }
         }
 
+        // Respect manual selection if provided (e.g. from Dashboard or Planning form)
+        $manualMissing = $request->input('has_missing_materials');
+        if ($manualMissing !== null && $manualMissing !== '') {
+            $hasMissingOverall = ((string)$manualMissing === '1');
+        }
+
+        if ($hasMissingOverall && empty($allMissingItems)) {
+            foreach ($items as $item) {
+                $p = Product::with('boms.rawMaterial')->find($item->product_id);
+                if ($p) {
+                    foreach ($p->boms as $b) {
+                        $allMissingItems[$b->raw_material_id] = [
+                            'raw_material_id' => $b->raw_material_id,
+                            'missing' => (float)($item->quantity ?? 1000) * (float)$b->quantity_per_unit,
+                            'unit_cost' => (float)($b->rawMaterial->unit_cost ?? 0),
+                        ];
+                    }
+                }
+            }
+        }
+
         // If missing materials exist across any product, generate automated Purchase Requisition
         if ($hasMissingOverall) {
             $prNumber = 'PR-' . date('Y') . '-' . str_pad((PurchaseRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
@@ -430,6 +451,56 @@ class OperationsController extends Controller
         ])->with('success', 'تم تسجيل تقرير الساعة (' . $validated['hour_slot'] . ') بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة ' . $eff . '% وتحديث المؤشرات للإدارة العليا.');
     }
 
+    public function updateHourlyReport(Request $request, HourlyMachineReport $hourlyMachineReport): RedirectResponse
+    {
+        if (!$hourlyMachineReport->is_editable) {
+            return back()->with('error', 'عفواً، لا يمكن تعديل بيانات تقرير ساعة من يوم سابق (يُقفل التقرير تلقائياً بانتهاء اليوم).');
+        }
+
+        $validated = $request->validate([
+            'operator_name' => 'required|string|max:255',
+            'product_id' => 'nullable|exists:products,id',
+            'units_produced' => 'required|numeric|min:0',
+            'belt_speed_m_min' => 'required|numeric|min:0.01',
+            'waste_units' => 'nullable|numeric|min:0',
+            'downtime_minutes' => 'nullable|integer|min:0',
+            'downtime_reason' => 'nullable|string|max:255',
+            'actions_taken' => 'nullable|string',
+        ]);
+
+        $machine = $hourlyMachineReport->machine;
+        $unitsProduced = (float)$validated['units_produced'];
+        $speed = (float)$validated['belt_speed_m_min'];
+        $waste = (float)($validated['waste_units'] ?? 0);
+        $down = (int)($validated['downtime_minutes'] ?? 0);
+
+        $theoreticalCapacity = $speed * 60;
+        $eff = $theoreticalCapacity > 0 ? round(($unitsProduced / $theoreticalCapacity) * 100, 2) : 0;
+
+        $rec = HourlyMachineReport::generateRecommendation(
+            $eff,
+            $down,
+            $waste,
+            $speed,
+            $machine->belt_speed_m_min
+        );
+
+        $hourlyMachineReport->update([
+            'operator_name' => $validated['operator_name'],
+            'product_id' => $validated['product_id'] ?? $hourlyMachineReport->product_id,
+            'units_produced' => $unitsProduced,
+            'belt_speed_m_min' => $speed,
+            'efficiency_rate' => $eff,
+            'waste_units' => $waste,
+            'downtime_minutes' => $down,
+            'downtime_reason' => $validated['downtime_reason'] ?? null,
+            'actions_taken' => $validated['actions_taken'] ?? null,
+            'ai_smart_recommendation' => $rec,
+        ]);
+
+        return back()->with('success', 'تم تعديل وتحديث بيانات تقرير الساعة بنجاح، وإعادة حساب الكفاءة التشغيلية (' . $eff . '%).');
+    }
+
     // ================= MATERIAL REQUISITIONS & RECEIPT =================
     public function requisitions(): View
     {
@@ -447,7 +518,30 @@ class OperationsController extends Controller
             ->latest()
             ->get();
 
+        $products = Product::where('status', true)->with('boms.rawMaterial')->get();
         $rawMaterials = RawMaterial::orderBy('name')->get();
+
+        $productsJson = $products->map(function($p) {
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'code' => $p->code,
+                'boms' => $p->boms->map(fn($b) => [
+                    'raw_material_id' => $b->raw_material_id,
+                    'name' => $b->rawMaterial?->name,
+                    'unit' => $b->rawMaterial?->unit,
+                    'stock' => (float)($b->rawMaterial?->current_stock ?? 0),
+                    'qty_per_unit' => (float)$b->quantity_per_unit,
+                ]),
+            ];
+        });
+
+        $rawMaterialsJson = $rawMaterials->map(fn($rm) => [
+            'id' => $rm->id,
+            'name' => $rm->name,
+            'unit' => $rm->unit,
+            'stock' => (float)$rm->current_stock,
+        ]);
 
         $pendingCount = MaterialRequisition::where('status', 'requested')->count();
         $inTransitCount = MaterialRequisition::where('status', 'issued')->count();
@@ -456,7 +550,10 @@ class OperationsController extends Controller
         return view('operations.requisitions.index', compact(
             'requisitions',
             'activeProductionOrders',
+            'products',
             'rawMaterials',
+            'productsJson',
+            'rawMaterialsJson',
             'pendingCount',
             'inTransitCount',
             'receivedCount'
@@ -466,23 +563,48 @@ class OperationsController extends Controller
     public function storeRequisition(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'production_order_id' => 'required|exists:production_orders,id',
+            'production_order_id' => 'nullable|exists:production_orders,id',
+            'product_id' => 'nullable|exists:products,id',
+            'couvert_quantity' => 'nullable|numeric|min:1',
             'items' => 'required|array|min:1',
             'items.*.raw_material_id' => 'required|exists:raw_materials,id',
             'items.*.quantity' => 'required|numeric|min:0.1',
             'notes' => 'nullable|string',
         ]);
 
-        $productionOrder = ProductionOrder::findOrFail($validated['production_order_id']);
+        $productionOrder = null;
+        if (!empty($validated['production_order_id'])) {
+            $productionOrder = ProductionOrder::find($validated['production_order_id']);
+        } elseif (!empty($validated['product_id'])) {
+            // Started with a Couvert/Product and customized its materials!
+            $product = Product::findOrFail($validated['product_id']);
+            $factory = Factory::where('code', 'FAC-COUVERT')->first() ?? Factory::first();
+            $couvertQty = (float)($validated['couvert_quantity'] ?? 10000);
+
+            $woNumber = 'WO-DIR-' . date('Y') . '-' . str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+            $productionOrder = ProductionOrder::create([
+                'order_number' => $woNumber,
+                'sales_order_id' => null,
+                'factory_id' => $factory->id,
+                'product_id' => $product->id,
+                'planned_quantity' => $couvertQty,
+                'produced_quantity' => 0,
+                'status' => 'ready',
+                'operations_manager_id' => Auth::id(),
+                'instructions' => 'طلب خامات مخصص لإنتاج وتعديل محتويات كوڤير: ' . $product->name,
+            ]);
+        } else {
+            $productionOrder = ProductionOrder::latest()->first();
+        }
 
         $mrNumber = 'MR-' . date('Y') . '-' . str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
         $materialReq = MaterialRequisition::create([
             'req_number' => $mrNumber,
-            'production_order_id' => $productionOrder->id,
+            'production_order_id' => $productionOrder?->id,
             'status' => 'requested',
             'requested_by' => Auth::id(),
             'requested_at' => now(),
-            'notes' => $validated['notes'] ?? ('طلب صرف مستلزمات إنتاج لأمر التشغيل ' . $productionOrder->order_number),
+            'notes' => $validated['notes'] ?? ('طلب صرف مستلزمات إنتاج لأمر التشغيل ' . ($productionOrder?->order_number ?? 'مباشر')),
         ]);
 
         foreach ($validated['items'] as $item) {

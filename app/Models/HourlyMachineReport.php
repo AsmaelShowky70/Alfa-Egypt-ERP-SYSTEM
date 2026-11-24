@@ -64,6 +64,20 @@ class HourlyMachineReport extends Model
         return $this->product ?? $this->productionOrder?->product;
     }
 
+    public function getIsEditableAttribute(): bool
+    {
+        $todayStr = now()->toDateString();
+        $isSameDay = $this->report_date && $this->report_date->toDateString() === $todayStr;
+        $isCreatedToday = $this->created_at && $this->created_at->toDateString() === $todayStr;
+
+        // Editable during the same day of the shift, or if senior management/owner
+        if ($isSameDay || $isCreatedToday) {
+            return true;
+        }
+
+        return auth()->user()?->hasRole(['owner', 'general_manager']) ?? false;
+    }
+
     public function createdByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

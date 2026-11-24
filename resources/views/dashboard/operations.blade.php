@@ -91,7 +91,14 @@
                             <img src="{{ $order->customer->logo_url }}" class="w-10 h-10 rounded-xl object-contain bg-white p-1 border border-slate-200">
                             <div>
                                 <h3 class="font-extrabold text-sm text-slate-900">{{ $order->customer->name }} ({{ $order->order_number }})</h3>
-                                <p class="text-xs text-slate-500">المنتج المطلوب: <b class="text-slate-800">{{ $order->items->first()?->product->name }}</b> بمقدار <b class="text-brand-700">{{ number_format($order->items->sum('quantity')) }} قطعة</b></p>
+                                <div class="flex flex-wrap gap-1.5 mt-1">
+                                    @foreach($order->items as $it)
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-800">
+                                            <span class="font-bold">{{ $it->product?->name }}</span>
+                                            <span class="text-brand-700 font-extrabold font-mono">({{ number_format($it->quantity) }} ق)</span>
+                                        </span>
+                                    @endforeach
+                                </div>
                             </div>
                         </div>
                         <span class="px-2.5 py-1 rounded-full text-xs font-bold border {{ $order->status_badge['color'] }}">
@@ -99,29 +106,48 @@
                         </span>
                     </div>
 
-                    <!-- Material Availability Checklist -->
-                    <div class="bg-white p-3 rounded-xl border border-slate-200/80 text-xs">
-                        <p class="font-bold text-slate-700 mb-2">موقف مستلزمات الـ BOM بالمخزن المركزي:</p>
+                    <!-- Material Availability Checklist across all order items -->
+                    <div class="bg-white p-3 rounded-xl border border-slate-200/80 text-xs space-y-2">
+                        <p class="font-bold text-slate-700">موقف مستلزمات الـ BOM لكافة أصناف الطلبية بالمخزن المركزي:</p>
+                        @php
+                            $orderRequiredMaterials = [];
+                            foreach($order->items as $it) {
+                                if ($it->product) {
+                                    foreach($it->product->boms as $bom) {
+                                        $rmId = $bom->raw_material_id;
+                                        $needed = $it->quantity * $bom->quantity_per_unit;
+                                        if (!isset($orderRequiredMaterials[$rmId])) {
+                                            $orderRequiredMaterials[$rmId] = [
+                                                'name' => $bom->rawMaterial->name ?? 'مادة',
+                                                'needed' => 0,
+                                                'avail' => $bom->rawMaterial->current_stock ?? 0,
+                                            ];
+                                        }
+                                        $orderRequiredMaterials[$rmId]['needed'] += $needed;
+                                    }
+                                }
+                            }
+                            $orderHasShortage = false;
+                            foreach($orderRequiredMaterials as $mat) {
+                                if ($mat['avail'] < $mat['needed']) {
+                                    $orderHasShortage = true;
+                                    break;
+                                }
+                            }
+                        @endphp
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            @php
-                                $firstProd = $order->items->first()?->product;
-                            @endphp
-                            @if($firstProd)
-                                @foreach($firstProd->boms as $bom)
-                                    @php
-                                        $needed = $order->items->sum('quantity') * $bom->quantity_per_unit;
-                                        $avail = $bom->rawMaterial->current_stock ?? 0;
-                                        $isSufficient = $avail >= $needed;
-                                    @endphp
-                                    <div class="p-2 rounded-lg border {{ $isSufficient ? 'border-emerald-200 bg-emerald-50/40 text-emerald-900' : 'border-rose-200 bg-rose-50/50 text-rose-900' }}">
-                                        <div class="font-bold truncate">{{ $bom->rawMaterial->name ?? 'مادة' }}</div>
-                                        <div class="text-[10px]">{{ number_format($needed) }} مطلوب / {{ number_format($avail) }} متاح</div>
-                                        <div class="text-[10px] font-extrabold mt-1">
-                                            {!! $isSufficient ? '<i class="fa-solid fa-check text-emerald-600"></i> متوفر' : '<i class="fa-solid fa-xmark text-rose-600"></i> عجز ' . number_format($needed - $avail) !!}
-                                        </div>
+                            @foreach($orderRequiredMaterials as $mat)
+                                @php
+                                    $isSufficient = $mat['avail'] >= $mat['needed'];
+                                @endphp
+                                <div class="p-2 rounded-lg border {{ $isSufficient ? 'border-emerald-200 bg-emerald-50/40 text-emerald-900' : 'border-rose-200 bg-rose-50/50 text-rose-900' }}">
+                                    <div class="font-bold truncate">{{ $mat['name'] }}</div>
+                                    <div class="text-[10px]">{{ number_format($mat['needed']) }} مطلوب / {{ number_format($mat['avail']) }} متاح</div>
+                                    <div class="text-[10px] font-extrabold mt-1">
+                                        {!! $isSufficient ? '<i class="fa-solid fa-check text-emerald-600"></i> متوفر' : '<i class="fa-solid fa-xmark text-rose-600"></i> عجز ' . number_format($mat['needed'] - $mat['avail']) !!}
                                     </div>
-                                @endforeach
-                            @endif
+                                </div>
+                            @endforeach
                         </div>
                     </div>
 
@@ -143,15 +169,25 @@
                         </div>
 
                         <div class="flex-1 min-w-[140px]">
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">ماكينة التشغيل</label>
+                            <select name="machine_id" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-600 outline-none">
+                                <option value="">-- اختياري (تحديد لاحقاً) --</option>
+                                @foreach(\App\Models\Machine::all() as $m)
+                                    <option value="{{ $m->id }}">{{ $m->name }} ({{ $m->code }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="flex-1 min-w-[160px]">
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">هل توجد نواقص تستلزم شراء؟</label>
                             <select name="has_missing_materials" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:ring-1 focus:ring-blue-600 outline-none">
-                                <option value="0">كافة الخامات متوفرة بالمخزن</option>
-                                <option value="1">توجد نواقص يلزم المشتريات توفيرها</option>
+                                <option value="0" {{ !$orderHasShortage ? 'selected' : '' }}>كافة الخامات متوفرة بالمخزن</option>
+                                <option value="1" {{ $orderHasShortage ? 'selected' : '' }}>توجد نواقص يلزم المشتريات توفيرها</option>
                             </select>
                         </div>
 
                         <div class="w-full sm:w-auto self-end pt-1">
-                            <button type="submit" class="w-full sm:w-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+                            <button type="submit" class="w-full sm:w-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
                                 <i class="fa-solid fa-calendar-check"></i>
                                 <span>إصدار أمر التشغيل وطلب الخامات</span>
                             </button>

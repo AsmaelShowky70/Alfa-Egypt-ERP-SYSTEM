@@ -48,6 +48,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:operations,maintenance,owner,gm')->prefix('operations')->name('operations.')->group(function () {
         Route::get('/hourly-reports', [OperationsController::class, 'hourlyReports'])->name('hourlyReports');
         Route::post('/hourly-reports', [OperationsController::class, 'storeHourlyReport'])->name('hourlyReports.store');
+        Route::put('/hourly-reports/{hourlyMachineReport}', [OperationsController::class, 'updateHourlyReport'])->name('hourlyReports.update');
+        Route::post('/hourly-reports/{hourlyMachineReport}/update', [OperationsController::class, 'updateHourlyReport'])->name('hourlyReports.updatePost');
     });
 
     Route::middleware('role:operations,owner,gm')->prefix('operations')->name('operations.')->group(function () {

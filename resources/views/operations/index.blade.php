@@ -158,18 +158,11 @@
                         </div>
 
                         <div class="flex-1 min-w-[170px]">
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">موقف الخامات (فحص آلي بالمخزن)</label>
-                            @if($orderHasShortage)
-                                <div class="px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-[11px] font-black text-rose-700 flex items-center gap-1.5 shadow-sm">
-                                    <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
-                                    <span>توجد نواقص (إرسال طلب شراء للمشتريات)</span>
-                                </div>
-                            @else
-                                <div class="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-black text-emerald-700 flex items-center gap-1.5 shadow-sm">
-                                    <i class="fa-solid fa-circle-check text-emerald-600"></i>
-                                    <span>الخامات متوفرة بالكامل بالمخزن</span>
-                                </div>
-                            @endif
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">هل توجد نواقص تستلزم شراء؟</label>
+                            <select name="has_missing_materials" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-1 focus:ring-blue-600 outline-none">
+                                <option value="0" {{ !$orderHasShortage ? 'selected' : '' }}>كافة الخامات متوفرة بالمخزن</option>
+                                <option value="1" {{ $orderHasShortage ? 'selected' : '' }}>توجد نواقص يلزم المشتريات توفيرها</option>
+                            </select>
                         </div>
 
                         <div class="flex-1 min-w-[160px]">
