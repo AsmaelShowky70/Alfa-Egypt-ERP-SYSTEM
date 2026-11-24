@@ -9,6 +9,8 @@ use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionItem;
 use App\Models\Product;
 use App\Models\ProductionOrder;
+use App\Models\PurchaseRequisition;
+use App\Models\PurchaseRequisitionItem;
 use App\Models\RawMaterial;
 use App\Models\SalesOrder;
 use App\Models\StockMovement;
@@ -49,32 +51,59 @@ class OperationsController extends Controller
         $validated = $request->validate([
             'operations_lead_time_days' => 'required|integer|min:1',
             'factory_id' => 'required|exists:factories,id',
-            'machine_id' => 'nullable|exists:machines,id',
-            'has_missing_materials' => 'required|boolean',
+            'machine_id' => 'nullable',
+            'has_missing_materials' => 'nullable',
             'notes' => 'nullable|string',
         ]);
 
         $factory = Factory::findOrFail($validated['factory_id']);
         $leadTimeDays = (int)$validated['operations_lead_time_days'];
-        $hasMissing = (bool)$validated['has_missing_materials'];
+        $machineId = !empty($validated['machine_id']) ? (int)$validated['machine_id'] : null;
 
         // Compute confirmed or estimated completion date
         $startDate = Carbon::now();
         $targetEndDate = Carbon::now()->addDays($leadTimeDays);
 
-        // Create Production Order (Work Order)
+        // First item and planning details
         $firstItem = $order->items->first();
         $productId = $firstItem ? $firstItem->product_id : Product::first()->id;
-        $plannedQty = $firstItem ? $firstItem->quantity : 1000;
+        $plannedQty = $firstItem ? (float)$firstItem->quantity : 1000;
 
         $woNumber = 'WO-' . date('Y') . '-' . str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
 
+        // 1. Automatic BOM stock check (No manual guessing of missing materials)
+        $product = Product::with('boms.rawMaterial')->find($productId);
+        $missingCount = 0;
+        $missingItems = [];
+
+        if ($product) {
+            foreach ($product->boms as $bom) {
+                $rm = $bom->rawMaterial;
+                $needed = $plannedQty * (float)$bom->quantity_per_unit;
+                $currentStock = $rm ? (float)$rm->current_stock : 0;
+                $missing = max(0, $needed - $currentStock);
+
+                if ($missing > 0) {
+                    $missingCount++;
+                    $missingItems[] = [
+                        'raw_material_id' => $bom->raw_material_id,
+                        'needed' => $needed,
+                        'missing' => $missing,
+                        'unit_cost' => $rm ? (float)$rm->unit_cost : 0,
+                    ];
+                }
+            }
+        }
+
+        $hasMissing = ($missingCount > 0);
+
+        // 2. Create Production Order (Work Order)
         $productionOrder = ProductionOrder::create([
             'order_number' => $woNumber,
             'sales_order_id' => $order->id,
             'factory_id' => $factory->id,
             'product_id' => $productId,
-            'machine_id' => $validated['machine_id'],
+            'machine_id' => $machineId,
             'planned_quantity' => $plannedQty,
             'produced_quantity' => 0,
             'scheduled_start_date' => $startDate,
@@ -82,10 +111,10 @@ class OperationsController extends Controller
             'estimated_hours' => $leadTimeDays * 8, // 8 hours per day
             'status' => $hasMissing ? 'waiting_materials' : 'ready',
             'operations_manager_id' => Auth::id(),
-            'instructions' => $validated['notes'],
+            'instructions' => $validated['notes'] ?? null,
         ]);
 
-        // Automatically create Material Requisition to Central Warehouse
+        // 3. Automatically create Material Requisition to Central Warehouse
         $mrNumber = 'MR-' . date('Y') . '-' . str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
         $materialReq = MaterialRequisition::create([
             'req_number' => $mrNumber,
@@ -96,20 +125,13 @@ class OperationsController extends Controller
             'notes' => 'طلب صرف مستلزمات الإنتاج لأمر التشغيل ' . $woNumber . ' الخاص بطلبية ' . $order->order_number,
         ]);
 
-        // Populate required materials from BOM
-        $product = Product::with('boms.rawMaterial')->find($productId);
-        $missingCount = 0;
-
+        // Populate requisition items from BOM
         if ($product) {
             foreach ($product->boms as $bom) {
                 $rm = $bom->rawMaterial;
-                $needed = $plannedQty * $bom->quantity_per_unit;
+                $needed = $plannedQty * (float)$bom->quantity_per_unit;
                 $currentStock = $rm ? (float)$rm->current_stock : 0;
                 $missing = max(0, $needed - $currentStock);
-
-                if ($missing > 0) {
-                    $missingCount++;
-                }
 
                 MaterialRequisitionItem::create([
                     'material_requisition_id' => $materialReq->id,
@@ -122,21 +144,45 @@ class OperationsController extends Controller
             }
         }
 
-        if ($hasMissing || $missingCount > 0) {
+        // 4. If missing materials exist, generate automated Purchase Requisition for Procurement
+        if ($hasMissing) {
+            $prNumber = 'PR-' . date('Y') . '-' . str_pad((PurchaseRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
+            $pr = PurchaseRequisition::create([
+                'requisition_number' => $prNumber,
+                'sales_order_id' => $order->id,
+                'material_requisition_id' => $materialReq->id,
+                'factory_id' => $factory->id,
+                'warehouse_manager_id' => Auth::id(),
+                'status' => 'pending_procurement',
+                'required_date' => $targetEndDate,
+                'notes' => 'طلب شراء آلي تم توليده لوجود عجز خامات في أمر التشغيل ' . $woNumber,
+            ]);
+
+            foreach ($missingItems as $mItem) {
+                PurchaseRequisitionItem::create([
+                    'purchase_requisition_id' => $pr->id,
+                    'raw_material_id' => $mItem['raw_material_id'],
+                    'quantity' => $mItem['missing'],
+                    'unit_price_estimated' => $mItem['unit_cost'],
+                    'total_price_estimated' => $mItem['missing'] * $mItem['unit_cost'],
+                    'notes' => 'عجز خامات مطلوب توفيره للإنتاج',
+                ]);
+            }
+
             $order->update([
                 'operations_lead_time_days' => $leadTimeDays,
-                'status' => 'procurement_delayed', // Flag to sales that procurement lead time must be checked!
-                'internal_notes' => 'أفاد مدير التشغيل بأن مدة التصنيع هي ' . $leadTimeDays . ' أيام ولكن هناك خامات ناقصة يلزم توفيرها من المشتريات أولاً.',
+                'status' => 'procurement_delayed',
+                'internal_notes' => 'تم فحص الخامات آلياً ورصد عجز في (' . $missingCount . ') خامات. تم إرسال طلب الشراء فوراً للمشتريات (' . $prNumber . ') لتحديد مدة التوريد.',
             ]);
-            $msg = 'تم تسجيل أمر التشغيل وطلب صرف المستلزمات؛ نظراً لنقص بعض الخامات تم تحويل الطلب لحالة (بانتظار رد المشتريات).';
+            $msg = 'تم فحص الخامات آلياً ورصد عجز؛ تم إصدار أمر التشغيل (' . $woNumber . ') وتوليد طلب شراء فوري للمشتريات (' . $prNumber . ') دون الحاجة لإدخال يدوي.';
         } else {
             $order->update([
                 'operations_lead_time_days' => $leadTimeDays,
                 'confirmed_delivery_date' => $targetEndDate,
                 'status' => 'operations_scheduled',
-                'internal_notes' => 'الخامات متوفرة وتم حجزها؛ مدة التصنيع المحددة من التشغيل هي ' . $leadTimeDays . ' أيام عمل.',
+                'internal_notes' => 'الخامات متوفرة بالكامل بالمخزن؛ مدة التصنيع المحددة هي ' . $leadTimeDays . ' أيام عمل.',
             ]);
-            $msg = 'تم فحص الخامات وتأكيد توفرها وتحديد مدة التصنيع (' . $leadTimeDays . ' أيام) بنجاح. أصبحت المبيعات قادرة على تأكيد الميعاد مع العميل.';
+            $msg = 'الخامات متوفرة بالكامل! تم إصدار أمر التشغيل (' . $woNumber . ') وتأكيد جاهزية التصنيع بنجاح (' . $leadTimeDays . ' أيام).';
         }
 
         return redirect()->route('operations.workOrders.show', $productionOrder->id)->with('success', $msg);
@@ -203,31 +249,69 @@ class OperationsController extends Controller
     // ================= HOURLY MACHINE REPORTS =================
     public function hourlyReports(Request $request): View
     {
-        $date = $request->get('date', Carbon::today()->toDateString());
+        $rawDate = $request->get('date');
         $machineId = $request->get('machine_id');
 
-        $query = HourlyMachineReport::with(['machine.factory', 'factory'])
-            ->whereDate('report_date', $date);
+        $query = HourlyMachineReport::with(['machine.factory', 'factory']);
+
+        // Determine selected date:
+        // If explicit date is given (and not empty or 'all'):
+        if ($request->has('date') && $rawDate !== 'all' && !empty($rawDate)) {
+            $selectedDate = $rawDate;
+            $query->whereDate('report_date', $selectedDate);
+        } elseif ($request->has('date') && ($rawDate === 'all' || empty($rawDate))) {
+            // User requested to see all dates!
+            $selectedDate = '';
+        } else {
+            // First time loading page (no ?date in query):
+            $today = Carbon::today()->toDateString();
+            $todayExists = HourlyMachineReport::whereDate('report_date', $today)->exists();
+            if ($todayExists) {
+                $selectedDate = $today;
+                $query->whereDate('report_date', $today);
+            } else {
+                $latestDate = HourlyMachineReport::max('report_date');
+                $selectedDate = $latestDate ? Carbon::parse($latestDate)->toDateString() : $today;
+                $query->whereDate('report_date', $selectedDate);
+            }
+        }
 
         if ($machineId) {
             $query->where('machine_id', $machineId);
         }
 
-        $reports = $query->latest()->paginate(20);
+        // Chronological order for the day: date descending, then hour slot ascending
+        $reports = $query->orderBy('report_date', 'desc')
+            ->orderBy('hour_slot', 'asc')
+            ->paginate(30)
+            ->withQueryString();
+
         $machines = Machine::where('status', '!=', 'scrapped')->get();
         $factories = Factory::all();
 
         // Summary calculations
-        $totalProduced = (float)HourlyMachineReport::whereDate('report_date', $date)->sum('units_produced');
-        $avgEfficiency = (float)HourlyMachineReport::whereDate('report_date', $date)->avg('efficiency_rate') ?? 0;
-        $totalDowntime = (int)HourlyMachineReport::whereDate('report_date', $date)->sum('downtime_minutes');
-        $totalWaste = (float)HourlyMachineReport::whereDate('report_date', $date)->sum('waste_units');
+        $summaryQuery = HourlyMachineReport::query();
+        if ($selectedDate) {
+            $summaryQuery->whereDate('report_date', $selectedDate);
+        }
+        if ($machineId) {
+            $summaryQuery->where('machine_id', $machineId);
+        }
+
+        $totalProduced = (float)$summaryQuery->sum('units_produced');
+        $avgEfficiency = (float)($summaryQuery->avg('efficiency_rate') ?? 0);
+        $totalDowntime = (int)$summaryQuery->sum('downtime_minutes');
+        $totalWaste = (float)$summaryQuery->sum('waste_units');
+
+        $date = $selectedDate;
 
         return view('operations.hourly_reports.index', compact(
             'reports',
             'machines',
             'factories',
             'date',
+            'selectedDate',
+            'machineId',
             'totalProduced',
             'avgEfficiency',
             'totalDowntime',
@@ -296,6 +380,9 @@ class OperationsController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        return back()->with('success', 'تم حساب كفاءة الماكينة أوتوماتيكياً (' . $eff . '%) وتسجيل تقرير الساعة ورفعه للإدارة العليا بنجاح.');
+        return redirect()->route('operations.hourlyReports', [
+            'date' => $validated['report_date'],
+            'machine_id' => $machine->id,
+        ])->with('success', 'تم تسجيل تقرير الساعة (' . $validated['hour_slot'] . ') بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة ' . $eff . '% وتحديث المؤشرات للإدارة العليا.');
     }
 }

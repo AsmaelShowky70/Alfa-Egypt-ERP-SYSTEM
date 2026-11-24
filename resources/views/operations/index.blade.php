@@ -131,18 +131,44 @@
                             </select>
                         </div>
 
-                        <div class="flex-1 min-w-[150px]">
-                            <label class="block text-[11px] font-bold text-slate-600 mb-1">حالة توفر الخامات</label>
-                            <select name="has_missing_materials" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-1 focus:ring-blue-600 outline-none">
-                                <option value="0">الخامات متوفرة بالمخزن</option>
-                                <option value="1">توجد نواقص يلزم المشتريات توفيرها</option>
-                            </select>
+                        @php
+                            $orderHasShortage = false;
+                            if($firstProd) {
+                                foreach($firstProd->boms as $b) {
+                                    $needed = $order->items->sum('quantity') * $b->quantity_per_unit;
+                                    $avail = $b->rawMaterial->current_stock ?? 0;
+                                    if ($avail < $needed) {
+                                        $orderHasShortage = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        @endphp
+
+                        <div class="flex-1 min-w-[170px]">
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">موقف الخامات (فحص آلي بالمخزن)</label>
+                            @if($orderHasShortage)
+                                <div class="px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-[11px] font-black text-rose-700 flex items-center gap-1.5 shadow-sm">
+                                    <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
+                                    <span>توجد نواقص (إرسال طلب شراء للمشتريات)</span>
+                                </div>
+                            @else
+                                <div class="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-black text-emerald-700 flex items-center gap-1.5 shadow-sm">
+                                    <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                                    <span>الخامات متوفرة بالكامل بالمخزن</span>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="flex-1 min-w-[160px]">
+                            <label class="block text-[11px] font-bold text-slate-600 mb-1">تعليمات التشغيل (اختياري)</label>
+                            <input type="text" name="notes" placeholder="ملاحظات تشغيل إن وجدت..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
                         </div>
 
                         <div class="w-full sm:w-auto self-end pt-1">
                             <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2">
                                 <i class="fa-solid fa-calendar-check"></i>
-                                <span>إصدار أمر التشغيل وطلب الصرف</span>
+                                <span>إصدار أمر التشغيل وطلب الخامات</span>
                             </button>
                         </div>
                     </form>

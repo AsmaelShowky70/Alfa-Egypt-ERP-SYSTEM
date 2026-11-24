@@ -64,31 +64,45 @@
     </div>
 
     <!-- Filter by Date & Machine -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4 text-xs">
-        <form method="GET" action="{{ route('operations.hourlyReports') }}" class="flex flex-wrap items-center gap-3 m-0">
-            <div class="flex items-center gap-2">
-                <label class="font-bold text-slate-600">التاريخ:</label>
-                <input type="date" name="date" value="{{ $date }}" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
+        <form method="GET" action="{{ route('operations.hourlyReports') }}" class="flex flex-wrap items-center justify-between gap-3 m-0">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <label class="font-bold text-slate-700">التاريخ:</label>
+                    <input type="date" name="date" value="{{ $selectedDate }}" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label class="font-bold text-slate-700">الماكينة:</label>
+                    <select name="machine_id" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-600 outline-none">
+                        <option value="">كافة الماكينات</option>
+                        @foreach($machines as $m)
+                            <option value="{{ $m->id }}" {{ request('machine_id') == $m->id ? 'selected' : '' }}>
+                                {{ $m->name }} ({{ $m->code }})
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <button type="submit" class="px-4 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition">
+                    تصفية
+                </button>
             </div>
 
-            <div class="flex items-center gap-2">
-                <label class="font-bold text-slate-600">الماكينة:</label>
-                <select name="machine_id" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-600 outline-none">
-                    <option value="">كافة الماكينات</option>
-                    @foreach($machines as $m)
-                        <option value="{{ $m->id }}" {{ request('machine_id') == $m->id ? 'selected' : '' }}>
-                            {{ $m->name }} ({{ $m->code }})
-                        </option>
-                    @endforeach
-                </select>
+            <!-- Quick Filter Shortcuts -->
+            <div class="flex items-center gap-2 text-xs">
+                <a href="{{ route('operations.hourlyReports', ['date' => date('Y-m-d'), 'machine_id' => request('machine_id')]) }}" class="px-2.5 py-1 rounded-lg border {{ $selectedDate === date('Y-m-d') ? 'bg-blue-600 text-white border-blue-600 font-bold' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">
+                    اليوم
+                </a>
+                <a href="{{ route('operations.hourlyReports', ['date' => \Carbon\Carbon::yesterday()->toDateString(), 'machine_id' => request('machine_id')]) }}" class="px-2.5 py-1 rounded-lg border {{ $selectedDate === \Carbon\Carbon::yesterday()->toDateString() ? 'bg-blue-600 text-white border-blue-600 font-bold' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">
+                    أمس
+                </a>
+                <a href="{{ route('operations.hourlyReports', ['date' => 'all', 'machine_id' => request('machine_id')]) }}" class="px-2.5 py-1 rounded-lg border {{ empty($selectedDate) ? 'bg-slate-800 text-white border-slate-800 font-bold' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">
+                    عرض كافة التواريخ
+                </a>
+                <span class="text-slate-400 font-medium mr-2">عدد الساعات المسجلة: <b>{{ $reports->total() }}</b></span>
             </div>
-
-            <button type="submit" class="px-4 py-1.5 bg-slate-800 text-white rounded-lg font-bold hover:bg-slate-700 transition">
-                تصفية
-            </button>
         </form>
-
-        <span class="text-slate-400 font-medium">عدد التقارير المسجلة: <b>{{ $reports->total() }}</b></span>
     </div>
 
     <!-- Hourly Reports Cards with AI Decision Recommendations -->
@@ -210,8 +224,11 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">تاريخ الوردية *</label>
-                        <input type="date" name="report_date" value="{{ date('Y-m-d') }}" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-700">تاريخ الوردية *</label>
+                            <span class="text-[10px] text-blue-600 font-semibold">متاح اليوم أو بأثر رجعي</span>
+                        </div>
+                        <input type="date" name="report_date" value="{{ $selectedDate ?: date('Y-m-d') }}" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-600 outline-none">
                     </div>
 
                     <div>
