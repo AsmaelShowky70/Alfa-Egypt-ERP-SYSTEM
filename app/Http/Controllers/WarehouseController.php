@@ -135,7 +135,7 @@ class WarehouseController extends Controller
             foreach ($materialRequisition->items as $item) {
                 $rm = $item->rawMaterial;
                 $requested = (float) $item->quantity_requested;
-                $available = (float) $rm->current_stock;
+                $available = (float) ($rm ? $rm->current_stock : 0);
 
                 $toIssue = min($requested, $available);
                 $missing = max(0, $requested - $available);
@@ -144,9 +144,11 @@ class WarehouseController extends Controller
                     $hasMissing = true;
                 }
 
-                // Deduct from stock
-                $rm->current_stock = max(0, $available - $toIssue);
-                $rm->save();
+                // Deduct from stock if raw material exists
+                if ($rm) {
+                    $rm->current_stock = max(0, $available - $toIssue);
+                    $rm->save();
+                }
 
                 $item->update([
                     'quantity_issued' => $toIssue,
@@ -159,13 +161,13 @@ class WarehouseController extends Controller
                 StockMovementItem::create([
                     'stock_movement_id' => $voucher->id,
                     'item_type' => 'raw_material',
-                    'item_id' => $rm->id,
-                    'item_name' => $rm->name,
-                    'unit' => $rm->unit,
+                    'item_id' => $rm ? $rm->id : 1,
+                    'item_name' => $item->item_display_name,
+                    'unit' => $item->unit_display,
                     'quantity' => $toIssue,
                     'unit_cost' => $item->unit_cost,
                     'total_cost' => $sub,
-                    'notes' => 'صرف لصالح أمر تشغيل '.$materialRequisition->productionOrder->order_number,
+                    'notes' => 'صرف مستلزمات إنتاج لأمر تشغيل '.($materialRequisition->productionOrder->order_number ?? 'مباشر'),
                 ]);
             }
 

@@ -544,4 +544,86 @@ class AlfaErpEndToEndTest extends TestCase
         $response->assertSee('const productsData =', false);
         $response->assertSee('const customersData =', false);
     }
+
+    /**
+     * Test Operations Manual Product Entry with Image Upload & Kilogram Material Requisitions
+     */
+    public function test_operations_manual_product_upload_and_kilogram_requisitions(): void
+    {
+        $opsUser = User::where('role', 'operations')->first() ?? User::where('role', 'owner')->first();
+        $machine = Machine::first();
+
+        // 1. Submit Hourly Report with Custom Manual Product and Image Upload
+        $manualProdData = [
+            'machine_id' => $machine->id,
+            'operator_name' => 'مشغل وردية الكوڤير',
+            'report_date' => now()->toDateString(),
+            'hour_slot' => '10:00 - 11:00',
+            'units_produced' => 2500,
+            'belt_speed_m_min' => 50,
+            'product_id' => 'custom',
+            'custom_product_name' => 'كوڤير كبابجي درويش 3 في 1',
+            'custom_product_components' => 'معلقة بلاستيك + منديل جاف + خلة أسنان',
+            'custom_product_image' => \Illuminate\Http\UploadedFile::fake()->image('darwish_couvert.jpg'),
+        ];
+
+        $respHourly = $this->actingAs($opsUser)->post('/operations/hourly-reports', $manualProdData);
+        $respHourly->assertRedirect();
+
+        $createdProduct = Product::where('name', 'كوڤير كبابجي درويش 3 في 1')->first();
+        $this->assertNotNull($createdProduct);
+        $this->assertNotNull($createdProduct->image);
+        $this->assertStringStartsWith('uploads/products/prod_', $createdProduct->image);
+
+        $hourlyReport = \App\Models\HourlyMachineReport::where('product_id', $createdProduct->id)->latest('id')->first();
+        $this->assertNotNull($hourlyReport);
+        $this->assertEquals(2500, (float)$hourlyReport->units_produced);
+
+        // 2. Submit Material Requisition with Manual Custom Item in Kilograms
+        $reqData = [
+            'notes' => 'طلب رولات سيلوفان مخصوص بالكيلو',
+            'items' => [
+                [
+                    'raw_material_id' => '',
+                    'custom_name' => 'رول فيلم سيلوفان بوب مخصوص بالوزن',
+                    'unit' => 'كجم',
+                    'quantity' => 85.50,
+                ],
+            ],
+        ];
+
+        $respReq = $this->actingAs($opsUser)->post('/operations/requisitions', $reqData);
+        $respReq->assertRedirect();
+
+        $latestReq = \App\Models\MaterialRequisition::latest('id')->first();
+        $this->assertNotNull($latestReq);
+        $firstItem = $latestReq->items()->first();
+        $this->assertNotNull($firstItem);
+        $this->assertEquals('رول فيلم سيلوفان بوب مخصوص بالوزن', $firstItem->item_display_name);
+        $this->assertEquals('كجم', $firstItem->unit_display);
+        $this->assertEquals(85.50, (float)$firstItem->quantity_requested);
+
+        // 3. Test Warehouse Can View & Issue This Kilogram Requisition
+        $whUser = User::where('role', 'warehouse')->first() ?? User::where('role', 'owner')->first();
+        $respWhShow = $this->actingAs($whUser)->get('/warehouse/material-requisitions/' . $latestReq->id);
+        $respWhShow->assertStatus(200);
+        $respWhShow->assertSee('رول فيلم سيلوفان بوب مخصوص بالوزن');
+        $respWhShow->assertSee('كجم');
+
+        $respIssue = $this->actingAs($whUser)->post('/warehouse/material-requisitions/' . $latestReq->id . '/issue');
+        $respIssue->assertRedirect();
+
+        // Clean up created test records
+        if ($hourlyReport) $hourlyReport->delete();
+        if ($createdProduct) {
+            if ($createdProduct->image && file_exists(public_path($createdProduct->image))) {
+                @unlink(public_path($createdProduct->image));
+            }
+            $createdProduct->delete();
+        }
+        if ($latestReq) {
+            $latestReq->items()->delete();
+            $latestReq->delete();
+        }
+    }
 }

@@ -80,12 +80,16 @@ class Product extends Model
         }
 
         $this->update(['cost_price' => $totalCost]);
+
         return $totalCost;
     }
 
     public function getMarginPercentageAttribute(): float
     {
-        if ($this->selling_price <= 0) return 0;
+        if ($this->selling_price <= 0) {
+            return 0;
+        }
+
         return round((($this->selling_price - $this->cost_price) / $this->selling_price) * 100, 2);
     }
 
@@ -99,9 +103,10 @@ class Product extends Model
         if ($this->image && (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://'))) {
             return $this->image;
         }
-        if ($this->image && file_exists(public_path($this->image))) {
+        if ($this->image) {
             return asset($this->image);
         }
-        return 'https://placehold.co/400x300/e2ede9/008060?text=' . urlencode($this->name);
+
+        return 'https://placehold.co/400x300/e2ede9/008060?text='.urlencode($this->name);
     }
 }

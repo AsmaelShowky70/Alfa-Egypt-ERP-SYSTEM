@@ -132,20 +132,23 @@
                             @foreach($req->items as $item)
                                 <tr>
                                     <td class="py-2.5 px-3 font-sans font-bold text-slate-800">
-                                        {{ $item->rawMaterial?->name ?? 'خامة' }}
+                                        {{ $item->item_display_name }}
+                                        @if($item->custom_material_name)
+                                            <span class="inline-block bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-bold mr-1">صنف يدوي</span>
+                                        @endif
                                     </td>
                                     <td class="py-2.5 px-3 text-slate-500 text-[11px]">
-                                        {{ $item->rawMaterial?->code ?? '-' }}
+                                        {{ $item->rawMaterial?->code ?? 'RM-MANUAL' }}
                                     </td>
                                     <td class="py-2.5 px-3 font-black text-slate-900">
-                                        {{ number_format($item->quantity_requested) }} <span class="text-[10px] text-slate-400 font-sans">{{ $item->rawMaterial?->unit ?? 'قطعة' }}</span>
+                                        {{ number_format((float)$item->quantity_requested, 2) }} <span class="text-[10px] text-slate-500 font-sans font-bold">{{ $item->unit_display }}</span>
                                     </td>
                                     <td class="py-2.5 px-3 font-black text-emerald-700">
-                                        {{ number_format($item->quantity_issued) }} <span class="text-[10px] text-slate-400 font-sans">{{ $item->rawMaterial?->unit ?? 'قطعة' }}</span>
+                                        {{ number_format((float)$item->quantity_issued, 2) }} <span class="text-[10px] text-slate-500 font-sans font-bold">{{ $item->unit_display }}</span>
                                     </td>
                                     <td class="py-2.5 px-3 font-sans">
                                         @if($item->quantity_missing > 0)
-                                            <span class="text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-[11px] font-bold">عجز {{ number_format($item->quantity_missing) }}</span>
+                                            <span class="text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-[11px] font-bold">عجز {{ number_format((float)$item->quantity_missing, 2) }} {{ $item->unit_display }}</span>
                                         @else
                                             <span class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] font-bold">متوفرة ومصروفة</span>
                                         @endif
@@ -321,15 +324,16 @@
     }
 
     function buildMaterialOptions(selectedId) {
-        let html = '<option value="">-- اختر الخامة المطلوبة --</option>';
+        let html = '<option value="">-- اختر خامة من المخزن --</option>';
+        html += '<option value="custom" class="bg-blue-50 text-blue-700 font-bold">➕ كتابة صنف يدوي جديد (غير مسجل بالمخزن)</option>';
         rawMaterialsList.forEach(rm => {
             const sel = (selectedId && rm.id == selectedId) ? 'selected' : '';
-            html += `<option value="${rm.id}" ${sel}>${rm.name} (المتاح بالمخزن: ${rm.stock.toLocaleString('en-US')} ${rm.unit})</option>`;
+            html += `<option value="${rm.id}" ${sel}>${rm.name} (المتاح: ${rm.stock.toLocaleString('en-US')} ${rm.unit})</option>`;
         });
         return html;
     }
 
-    function addMaterialRow(rawMaterialId = '', quantity = '', unitLabel = 'قطعة') {
+    function addMaterialRow(rawMaterialId = '', quantity = '', unitLabel = 'قطعة', customName = '') {
         const container = document.getElementById('itemsContainer');
         const idx = reqItemIndex++;
 
@@ -337,17 +341,41 @@
         row.className = 'grid grid-cols-12 gap-2 items-center bg-slate-50 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/90 transition material-row';
         row.id = `mat-row-${idx}`;
 
+        const isCustom = !rawMaterialId && customName;
+
         row.innerHTML = `
-            <div class="col-span-7">
-                <select name="items[${idx}][raw_material_id]" required class="mat-select w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:ring-1 focus:ring-blue-600 outline-none">
-                    ${buildMaterialOptions(rawMaterialId)}
+            <div class="col-span-6 space-y-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-500">الخامة / المستلزم</span>
+                    <button type="button" class="text-[10px] text-blue-600 font-bold hover:underline" onclick="toggleRowMode(${idx})">
+                        <span id="row-mode-label-${idx}">${isCustom ? 'اختر من المخزن 📋' : 'كتابة يدوي ✏️'}</span>
+                    </button>
+                </div>
+                <div id="row-select-wrap-${idx}" class="${isCustom ? 'hidden' : ''}">
+                    <select name="items[${idx}][raw_material_id]" class="mat-select w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:ring-1 focus:ring-blue-600 outline-none">
+                        ${buildMaterialOptions(rawMaterialId)}
+                    </select>
+                </div>
+                <div id="row-custom-wrap-${idx}" class="${isCustom ? '' : 'hidden'}">
+                    <input type="text" name="items[${idx}][custom_name]" id="row-custom-input-${idx}" value="${customName}" placeholder="اكتب اسم الخامة أو المستلزم يدوياً..." class="w-full px-2.5 py-1.5 bg-white border border-blue-300 rounded-lg text-xs font-bold text-blue-900 focus:ring-1 focus:ring-blue-600 outline-none">
+                </div>
+            </div>
+            <div class="col-span-3 space-y-1">
+                <span class="text-[10px] font-bold text-slate-500 block">الكمية المطلوبة</span>
+                <input type="number" step="0.01" name="items[${idx}][quantity]" value="${quantity}" placeholder="الكمية" required class="mat-qty w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-900 focus:ring-1 focus:ring-blue-600 outline-none font-mono">
+            </div>
+            <div class="col-span-2 space-y-1">
+                <span class="text-[10px] font-bold text-slate-500 block">وحدة الصرف</span>
+                <select name="items[${idx}][unit]" class="mat-unit-select w-full px-1.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:ring-1 focus:ring-blue-600 outline-none">
+                    <option value="كجم" ${(unitLabel === 'كجم' || unitLabel.includes('كجم') || unitLabel.includes('كيلو')) ? 'selected' : ''}>كجم</option>
+                    <option value="قطعة" ${(unitLabel === 'قطعة' || !unitLabel) ? 'selected' : ''}>قطعة</option>
+                    <option value="رول" ${unitLabel === 'رول' ? 'selected' : ''}>رول</option>
+                    <option value="متر" ${unitLabel === 'متر' ? 'selected' : ''}>متر</option>
+                    <option value="كرتونة" ${unitLabel === 'كرتونة' ? 'selected' : ''}>كرتونة</option>
+                    <option value="لتر" ${unitLabel === 'لتر' ? 'selected' : ''}>لتر</option>
                 </select>
             </div>
-            <div class="col-span-4 flex items-center gap-1.5">
-                <input type="number" step="0.1" name="items[${idx}][quantity]" value="${quantity}" placeholder="الكمية" required class="mat-qty w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-black text-slate-900 focus:ring-1 focus:ring-blue-600 outline-none font-mono">
-                <span class="text-[11px] font-bold text-slate-500 whitespace-nowrap mat-unit">${unitLabel}</span>
-            </div>
-            <div class="col-span-1 text-center">
+            <div class="col-span-1 text-center pt-3">
                 <button type="button" class="text-rose-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" onclick="this.closest('.material-row').remove(); updateSummaryCount();" title="حذف الخامة">
                     <i class="fa-solid fa-trash-can text-sm"></i>
                 </button>
@@ -357,15 +385,50 @@
         container.appendChild(row);
 
         const select = row.querySelector('.mat-select');
-        const unitSpan = row.querySelector('.mat-unit');
+        const unitSelect = row.querySelector('.mat-unit-select');
+
         select.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                toggleRowMode(idx, true);
+                return;
+            }
             const rm = rawMaterialsList.find(m => m.id == this.value);
-            if (rm) {
-                unitSpan.textContent = rm.unit;
+            if (rm && unitSelect) {
+                if (rm.unit === 'كجم' || rm.unit.includes('كيلو') || rm.unit.includes('كجم')) {
+                    unitSelect.value = 'كجم';
+                } else if (rm.unit === 'قطعة') {
+                    unitSelect.value = 'قطعة';
+                } else {
+                    unitSelect.value = rm.unit;
+                }
             }
         });
 
         updateSummaryCount();
+    }
+
+    function toggleRowMode(idx, forceCustom = null) {
+        const selectWrap = document.getElementById(`row-select-wrap-${idx}`);
+        const customWrap = document.getElementById(`row-custom-wrap-${idx}`);
+        const modeLabel = document.getElementById(`row-mode-label-${idx}`);
+        const customInput = document.getElementById(`row-custom-input-${idx}`);
+        const select = selectWrap.querySelector('.mat-select');
+
+        const isCurrentlyCustom = !customWrap.classList.contains('hidden');
+        const shouldBeCustom = (forceCustom !== null) ? forceCustom : !isCurrentlyCustom;
+
+        if (shouldBeCustom) {
+            selectWrap.classList.add('hidden');
+            customWrap.classList.remove('hidden');
+            modeLabel.textContent = 'اختر من المخزن 📋';
+            if (select) select.value = '';
+            if (customInput) customInput.focus();
+        } else {
+            customWrap.classList.add('hidden');
+            selectWrap.classList.remove('hidden');
+            modeLabel.textContent = 'كتابة يدوي ✏️';
+            if (customInput) customInput.value = '';
+        }
     }
 
     function updateSummaryCount() {

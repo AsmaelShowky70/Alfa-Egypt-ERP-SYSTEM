@@ -63,17 +63,23 @@
                 <tbody class="divide-y divide-slate-100">
                     @foreach($materialRequisition->items as $item)
                         @php
-                            $avail = $item->rawMaterial->current_stock;
-                            $req = $item->quantity_requested;
+                            $avail = $item->rawMaterial ? (float)$item->rawMaterial->current_stock : 0;
+                            $req = (float)$item->quantity_requested;
+                            $unit = $item->unit_display;
                             $isShort = $avail < $req && $item->quantity_issued == 0;
                         @endphp
                         <tr>
-                            <td class="py-3 px-4 font-black text-slate-900 text-sm">{{ $item->rawMaterial->name }}</td>
-                            <td class="py-3 px-4 font-bold text-slate-800">{{ number_format($req) }} {{ $item->rawMaterial->unit }}</td>
-                            <td class="py-3 px-4 font-bold text-slate-600">{{ number_format($avail) }} {{ $item->rawMaterial->unit }}</td>
-                            <td class="py-3 px-4 font-black text-emerald-700">{{ number_format($item->quantity_issued) }}</td>
+                            <td class="py-3 px-4 font-black text-slate-900 text-sm">
+                                {{ $item->item_display_name }}
+                                @if($item->custom_material_name)
+                                    <span class="block text-[10px] text-blue-600 font-bold">خامة محددة يدوياً من قسم التشغيل</span>
+                                @endif
+                            </td>
+                            <td class="py-3 px-4 font-bold text-slate-800">{{ number_format($req, 2) }} {{ $unit }}</td>
+                            <td class="py-3 px-4 font-bold text-slate-600">{{ number_format($avail, 2) }} {{ $unit }}</td>
+                            <td class="py-3 px-4 font-black text-emerald-700">{{ number_format($item->quantity_issued, 2) }} {{ $unit }}</td>
                             <td class="py-3 px-4 font-black {{ $item->quantity_missing > 0 ? 'text-rose-600' : 'text-slate-400' }}">
-                                {{ number_format($item->quantity_missing) }}
+                                {{ number_format($item->quantity_missing, 2) }} {{ $unit }}
                             </td>
                             <td class="py-3 px-4 font-bold text-slate-800">{{ number_format($req * $item->unit_cost, 2) }} ج.م</td>
                             <td class="py-3 px-4">

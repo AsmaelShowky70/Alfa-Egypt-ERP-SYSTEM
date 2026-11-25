@@ -13,12 +13,11 @@ use App\Models\PurchaseRequisition;
 use App\Models\PurchaseRequisitionItem;
 use App\Models\RawMaterial;
 use App\Models\SalesOrder;
-use App\Models\StockMovement;
-use App\Models\StockMovementItem;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class OperationsController extends Controller
@@ -57,19 +56,19 @@ class OperationsController extends Controller
         ]);
 
         $factory = Factory::findOrFail($validated['factory_id']);
-        $leadTimeDays = (int)$validated['operations_lead_time_days'];
-        $machineId = !empty($validated['machine_id']) ? (int)$validated['machine_id'] : null;
+        $leadTimeDays = (int) $validated['operations_lead_time_days'];
+        $machineId = ! empty($validated['machine_id']) ? (int) $validated['machine_id'] : null;
 
         // Compute confirmed or estimated completion date
         $startDate = Carbon::now();
         $targetEndDate = Carbon::now()->addDays($leadTimeDays);
 
         $items = $order->items->isNotEmpty() ? $order->items : collect([
-            (object)[
+            (object) [
                 'product_id' => Product::first()?->id,
                 'quantity' => 1000,
                 'customization_notes' => null,
-            ]
+            ],
         ]);
 
         $hasMissingOverall = false;
@@ -80,27 +79,27 @@ class OperationsController extends Controller
 
         foreach ($items as $item) {
             $productId = $item->product_id;
-            $plannedQty = (float)($item->quantity ?? 1000);
+            $plannedQty = (float) ($item->quantity ?? 1000);
             $product = Product::with('boms.rawMaterial')->find($productId);
 
-            $woNumber = 'WO-' . date('Y') . '-' . str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+            $woNumber = 'WO-'.date('Y').'-'.str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
 
             // BOM check for this item
             $itemMissingCount = 0;
             if ($product) {
                 foreach ($product->boms as $bom) {
                     $rm = $bom->rawMaterial;
-                    $needed = $plannedQty * (float)$bom->quantity_per_unit;
-                    $currentStock = $rm ? (float)$rm->current_stock : 0;
+                    $needed = $plannedQty * (float) $bom->quantity_per_unit;
+                    $currentStock = $rm ? (float) $rm->current_stock : 0;
                     $missing = max(0, $needed - $currentStock);
 
                     if ($missing > 0) {
                         $itemMissingCount++;
-                        if (!isset($allMissingItems[$bom->raw_material_id])) {
+                        if (! isset($allMissingItems[$bom->raw_material_id])) {
                             $allMissingItems[$bom->raw_material_id] = [
                                 'raw_material_id' => $bom->raw_material_id,
                                 'missing' => 0,
-                                'unit_cost' => $rm ? (float)$rm->unit_cost : 0,
+                                'unit_cost' => $rm ? (float) $rm->unit_cost : 0,
                             ];
                         }
                         $allMissingItems[$bom->raw_material_id]['missing'] += $missing;
@@ -127,31 +126,31 @@ class OperationsController extends Controller
                 'estimated_hours' => max(4, round($plannedQty / 3000, 1)),
                 'status' => ($itemMissingCount > 0) ? 'waiting_materials' : 'ready',
                 'operations_manager_id' => Auth::id(),
-                'instructions' => ($item->customization_notes ? ($item->customization_notes . ' | ') : '') . ($validated['notes'] ?? null),
+                'instructions' => ($item->customization_notes ? ($item->customization_notes.' | ') : '').($validated['notes'] ?? null),
             ]);
 
-            if (!$firstWorkOrder) {
+            if (! $firstWorkOrder) {
                 $firstWorkOrder = $productionOrder;
             }
             $createdWorkOrders[] = $productionOrder;
 
             // Automatically create Material Requisition to Central Warehouse
-            $mrNumber = 'MR-' . date('Y') . '-' . str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
+            $mrNumber = 'MR-'.date('Y').'-'.str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
             $materialReq = MaterialRequisition::create([
                 'req_number' => $mrNumber,
                 'production_order_id' => $productionOrder->id,
                 'status' => 'requested',
                 'requested_by' => Auth::id(),
                 'requested_at' => now(),
-                'notes' => 'طلب صرف مستلزمات إنتاج (' . ($product->name ?? 'صنف') . ') لأمر التشغيل ' . $woNumber . ' الخاص بطلبية ' . $order->order_number,
+                'notes' => 'طلب صرف مستلزمات إنتاج ('.($product->name ?? 'صنف').') لأمر التشغيل '.$woNumber.' الخاص بطلبية '.$order->order_number,
             ]);
 
             // Populate requisition items from BOM
             if ($product) {
                 foreach ($product->boms as $bom) {
                     $rm = $bom->rawMaterial;
-                    $needed = $plannedQty * (float)$bom->quantity_per_unit;
-                    $currentStock = $rm ? (float)$rm->current_stock : 0;
+                    $needed = $plannedQty * (float) $bom->quantity_per_unit;
+                    $currentStock = $rm ? (float) $rm->current_stock : 0;
                     $missing = max(0, $needed - $currentStock);
 
                     MaterialRequisitionItem::create([
@@ -169,7 +168,7 @@ class OperationsController extends Controller
         // Respect manual selection if provided (e.g. from Dashboard or Planning form)
         $manualMissing = $request->input('has_missing_materials');
         if ($manualMissing !== null && $manualMissing !== '') {
-            $hasMissingOverall = ((string)$manualMissing === '1');
+            $hasMissingOverall = ((string) $manualMissing === '1');
         }
 
         if ($hasMissingOverall && empty($allMissingItems)) {
@@ -179,8 +178,8 @@ class OperationsController extends Controller
                     foreach ($p->boms as $b) {
                         $allMissingItems[$b->raw_material_id] = [
                             'raw_material_id' => $b->raw_material_id,
-                            'missing' => (float)($item->quantity ?? 1000) * (float)$b->quantity_per_unit,
-                            'unit_cost' => (float)($b->rawMaterial->unit_cost ?? 0),
+                            'missing' => (float) ($item->quantity ?? 1000) * (float) $b->quantity_per_unit,
+                            'unit_cost' => (float) ($b->rawMaterial->unit_cost ?? 0),
                         ];
                     }
                 }
@@ -189,7 +188,7 @@ class OperationsController extends Controller
 
         // If missing materials exist across any product, generate automated Purchase Requisition
         if ($hasMissingOverall) {
-            $prNumber = 'PR-' . date('Y') . '-' . str_pad((PurchaseRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
+            $prNumber = 'PR-'.date('Y').'-'.str_pad((PurchaseRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
             $pr = PurchaseRequisition::create([
                 'requisition_number' => $prNumber,
                 'sales_order_id' => $order->id,
@@ -198,7 +197,7 @@ class OperationsController extends Controller
                 'warehouse_manager_id' => Auth::id(),
                 'status' => 'pending_procurement',
                 'required_date' => $targetEndDate,
-                'notes' => 'طلب شراء آلي تم توليده لوجود عجز خامات في أوامر تشغيل الطلبية ' . $order->order_number,
+                'notes' => 'طلب شراء آلي تم توليده لوجود عجز خامات في أوامر تشغيل الطلبية '.$order->order_number,
             ]);
 
             foreach ($allMissingItems as $mItem) {
@@ -215,17 +214,17 @@ class OperationsController extends Controller
             $order->update([
                 'operations_lead_time_days' => $leadTimeDays,
                 'status' => 'procurement_delayed',
-                'internal_notes' => 'تم فحص خامات كافة أصناف الطلبية آلياً ورصد عجز في (' . $totalMissingCount . ') خامات. تم إرسال طلب الشراء فوراً للمشتريات (' . $prNumber . ') لتحديد مدة التوريد.',
+                'internal_notes' => 'تم فحص خامات كافة أصناف الطلبية آلياً ورصد عجز في ('.$totalMissingCount.') خامات. تم إرسال طلب الشراء فوراً للمشتريات ('.$prNumber.') لتحديد مدة التوريد.',
             ]);
-            $msg = 'تم فحص خامات ' . count($createdWorkOrders) . ' أصناف آلياً ورصد عجز خامات؛ تم إصدار أوامر التشغيل وتوليد طلب شراء فوري للمشتريات (' . $prNumber . ').';
+            $msg = 'تم فحص خامات '.count($createdWorkOrders).' أصناف آلياً ورصد عجز خامات؛ تم إصدار أوامر التشغيل وتوليد طلب شراء فوري للمشتريات ('.$prNumber.').';
         } else {
             $order->update([
                 'operations_lead_time_days' => $leadTimeDays,
                 'confirmed_delivery_date' => $targetEndDate,
                 'status' => 'operations_scheduled',
-                'internal_notes' => 'الخامات متوفرة بالكامل بالمخزن لكافة أصناف الطلبية؛ مدة التصنيع المحددة هي ' . $leadTimeDays . ' أيام عمل.',
+                'internal_notes' => 'الخامات متوفرة بالكامل بالمخزن لكافة أصناف الطلبية؛ مدة التصنيع المحددة هي '.$leadTimeDays.' أيام عمل.',
             ]);
-            $msg = 'الخامات متوفرة بالكامل لكافة أصناف الطلبية (' . count($createdWorkOrders) . ' أصناف)! تم إصدار أوامر التشغيل بنجاح (' . $leadTimeDays . ' أيام).';
+            $msg = 'الخامات متوفرة بالكامل لكافة أصناف الطلبية ('.count($createdWorkOrders).' أصناف)! تم إصدار أوامر التشغيل بنجاح ('.$leadTimeDays.' أيام).';
         }
 
         return redirect()->route('operations.workOrders.show', $firstWorkOrder->id)->with('success', $msg);
@@ -236,6 +235,7 @@ class OperationsController extends Controller
         $workOrders = ProductionOrder::with(['factory', 'product', 'machine', 'salesOrder.customer'])
             ->latest()
             ->paginate(15);
+
         return view('operations.work_orders.index', compact('workOrders'));
     }
 
@@ -247,7 +247,7 @@ class OperationsController extends Controller
             'machine',
             'salesOrder.customer',
             'materialRequisitions.items.rawMaterial',
-            'hourlyReports' => fn($q) => $q->latest()
+            'hourlyReports' => fn ($q) => $q->latest(),
         ]);
 
         return view('operations.work_orders.show', compact('productionOrder'));
@@ -270,7 +270,7 @@ class OperationsController extends Controller
             $productionOrder->defective_quantity = $validated['defective_quantity'];
         }
 
-        if ($validated['status'] === 'in_progress' && !$productionOrder->actual_start_date) {
+        if ($validated['status'] === 'in_progress' && ! $productionOrder->actual_start_date) {
             $productionOrder->actual_start_date = now();
             if ($productionOrder->salesOrder) {
                 $productionOrder->salesOrder->update(['status' => 'in_production']);
@@ -300,12 +300,12 @@ class OperationsController extends Controller
             'factory',
             'product.boms.rawMaterial',
             'productionOrder.product.boms.rawMaterial',
-            'productionOrder.salesOrder.customer'
+            'productionOrder.salesOrder.customer',
         ]);
 
         // Determine selected date:
         // If explicit date is given (and not empty or 'all'):
-        if ($request->has('date') && $rawDate !== 'all' && !empty($rawDate)) {
+        if ($request->has('date') && $rawDate !== 'all' && ! empty($rawDate)) {
             $selectedDate = $rawDate;
             $query->whereDate('report_date', $selectedDate);
         } elseif ($request->has('date') && ($rawDate === 'all' || empty($rawDate))) {
@@ -352,10 +352,10 @@ class OperationsController extends Controller
             $summaryQuery->where('machine_id', $machineId);
         }
 
-        $totalProduced = (float)$summaryQuery->sum('units_produced');
-        $avgEfficiency = (float)($summaryQuery->avg('efficiency_rate') ?? 0);
-        $totalDowntime = (int)$summaryQuery->sum('downtime_minutes');
-        $totalWaste = (float)$summaryQuery->sum('waste_units');
+        $totalProduced = (float) $summaryQuery->sum('units_produced');
+        $avgEfficiency = (float) ($summaryQuery->avg('efficiency_rate') ?? 0);
+        $totalDowntime = (int) $summaryQuery->sum('downtime_minutes');
+        $totalWaste = (float) $summaryQuery->sum('waste_units');
 
         $date = $selectedDate;
 
@@ -385,7 +385,11 @@ class OperationsController extends Controller
             'units_produced' => 'required|numeric|min:0',
             'belt_speed_m_min' => 'required|numeric|min:0.01',
             'efficiency_rate' => 'nullable|numeric|min:0',
-            'product_id' => 'nullable|exists:products,id',
+            'product_id' => 'nullable',
+            'custom_product_name' => 'nullable|string|max:255',
+            'custom_product_code' => 'nullable|string|max:100',
+            'custom_product_components' => 'nullable|string',
+            'custom_product_image' => 'nullable|image|max:8192',
             'production_order_id' => 'nullable|exists:production_orders,id',
             'waste_units' => 'nullable|numeric|min:0',
             'downtime_minutes' => 'nullable|integer|min:0',
@@ -394,10 +398,10 @@ class OperationsController extends Controller
         ]);
 
         $machine = Machine::findOrFail($validated['machine_id']);
-        $unitsProduced = (float)$validated['units_produced'];
-        $speed = (float)$validated['belt_speed_m_min']; // Machine speed in pieces per minute (قطعة / دقيقة)
-        $waste = (float)($validated['waste_units'] ?? 0);
-        $down = (int)($validated['downtime_minutes'] ?? 0);
+        $unitsProduced = (float) $validated['units_produced'];
+        $speed = (float) $validated['belt_speed_m_min']; // Machine speed in pieces per minute (قطعة / دقيقة)
+        $waste = (float) ($validated['waste_units'] ?? 0);
+        $down = (int) ($validated['downtime_minutes'] ?? 0);
 
         // Management Formula:
         // Theoretical Hourly Capacity = Speed (pieces/min) * 60 minutes
@@ -406,7 +410,7 @@ class OperationsController extends Controller
         if ($theoreticalCapacity > 0) {
             $eff = round(($unitsProduced / $theoreticalCapacity) * 100, 2);
         } else {
-            $eff = (float)($validated['efficiency_rate'] ?? 0);
+            $eff = (float) ($validated['efficiency_rate'] ?? 0);
         }
 
         // Generate smart decision recommendation
@@ -419,8 +423,43 @@ class OperationsController extends Controller
         );
 
         $prodId = $validated['product_id'] ?? null;
+
+        // Custom Product Handling (If operator wrote product manually or selected custom mode)
+        if ($prodId === 'custom' || (! empty($request->custom_product_name) && (! is_numeric($prodId) || empty($prodId)))) {
+            $imagePath = null;
+            if ($request->hasFile('custom_product_image')) {
+                $file = $request->file('custom_product_image');
+                $filename = 'prod_'.time().'_'.Str::random(8).'.'.$file->getClientOriginalExtension();
+                $file->move(public_path('uploads/products'), $filename);
+                $imagePath = 'uploads/products/'.$filename;
+            }
+
+            $prodName = trim($request->input('custom_product_name') ?: 'صنف مصنع يدوي جديد');
+            $prodCode = trim($request->input('custom_product_code') ?: ('PROD-CVR-'.strtoupper(Str::random(5))));
+            $desc = $request->input('custom_product_components');
+
+            $newProduct = Product::create([
+                'name' => $prodName,
+                'code' => $prodCode,
+                'category' => 'couvert',
+                'type' => 'couvert',
+                'unit' => 'قطعة',
+                'factory_id' => $machine->factory_id ?? 1,
+                'image' => $imagePath,
+                'description' => $desc,
+                'cost_price' => 1.50,
+                'selling_price' => 2.00,
+                'min_selling_price' => 1.75,
+                'status' => true,
+            ]);
+
+            $prodId = $newProduct->id;
+        } elseif ($prodId === 'custom') {
+            $prodId = null;
+        }
+
         $woId = $validated['production_order_id'] ?? null;
-        if (!$prodId && $woId) {
+        if (! $prodId && $woId) {
             $wo = ProductionOrder::find($woId);
             $prodId = $wo ? $wo->product_id : null;
         }
@@ -448,12 +487,12 @@ class OperationsController extends Controller
         return redirect()->route('operations.hourlyReports', [
             'date' => $validated['report_date'],
             'machine_id' => $machine->id,
-        ])->with('success', 'تم تسجيل تقرير الساعة (' . $validated['hour_slot'] . ') بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة ' . $eff . '% وتحديث المؤشرات للإدارة العليا.');
+        ])->with('success', 'تم تسجيل تقرير الساعة ('.$validated['hour_slot'].') بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة '.$eff.'% وتحديث المؤشرات للإدارة العليا.');
     }
 
     public function updateHourlyReport(Request $request, HourlyMachineReport $hourlyMachineReport): RedirectResponse
     {
-        if (!$hourlyMachineReport->is_editable) {
+        if (! $hourlyMachineReport->is_editable) {
             return back()->with('error', 'عفواً، لا يمكن تعديل بيانات تقرير ساعة من يوم سابق (يُقفل التقرير تلقائياً بانتهاء اليوم).');
         }
 
@@ -469,10 +508,10 @@ class OperationsController extends Controller
         ]);
 
         $machine = $hourlyMachineReport->machine;
-        $unitsProduced = (float)$validated['units_produced'];
-        $speed = (float)$validated['belt_speed_m_min'];
-        $waste = (float)($validated['waste_units'] ?? 0);
-        $down = (int)($validated['downtime_minutes'] ?? 0);
+        $unitsProduced = (float) $validated['units_produced'];
+        $speed = (float) $validated['belt_speed_m_min'];
+        $waste = (float) ($validated['waste_units'] ?? 0);
+        $down = (int) ($validated['downtime_minutes'] ?? 0);
 
         $theoreticalCapacity = $speed * 60;
         $eff = $theoreticalCapacity > 0 ? round(($unitsProduced / $theoreticalCapacity) * 100, 2) : 0;
@@ -498,7 +537,7 @@ class OperationsController extends Controller
             'ai_smart_recommendation' => $rec,
         ]);
 
-        return back()->with('success', 'تم تعديل وتحديث بيانات تقرير الساعة بنجاح، وإعادة حساب الكفاءة التشغيلية (' . $eff . '%).');
+        return back()->with('success', 'تم تعديل وتحديث بيانات تقرير الساعة بنجاح، وإعادة حساب الكفاءة التشغيلية ('.$eff.'%).');
     }
 
     // ================= MATERIAL REQUISITIONS & RECEIPT =================
@@ -510,7 +549,7 @@ class OperationsController extends Controller
             'items.rawMaterial',
             'requestedByUser',
             'issuedByUser',
-            'receivedByUser'
+            'receivedByUser',
         ])->latest()->paginate(15);
 
         $activeProductionOrders = ProductionOrder::with(['product.boms.rawMaterial', 'factory'])
@@ -521,26 +560,26 @@ class OperationsController extends Controller
         $products = Product::where('status', true)->with('boms.rawMaterial')->get();
         $rawMaterials = RawMaterial::orderBy('name')->get();
 
-        $productsJson = $products->map(function($p) {
+        $productsJson = $products->map(function ($p) {
             return [
                 'id' => $p->id,
                 'name' => $p->name,
                 'code' => $p->code,
-                'boms' => $p->boms->map(fn($b) => [
+                'boms' => $p->boms->map(fn ($b) => [
                     'raw_material_id' => $b->raw_material_id,
                     'name' => $b->rawMaterial?->name,
                     'unit' => $b->rawMaterial?->unit,
-                    'stock' => (float)($b->rawMaterial?->current_stock ?? 0),
-                    'qty_per_unit' => (float)$b->quantity_per_unit,
+                    'stock' => (float) ($b->rawMaterial?->current_stock ?? 0),
+                    'qty_per_unit' => (float) $b->quantity_per_unit,
                 ]),
             ];
         });
 
-        $rawMaterialsJson = $rawMaterials->map(fn($rm) => [
+        $rawMaterialsJson = $rawMaterials->map(fn ($rm) => [
             'id' => $rm->id,
             'name' => $rm->name,
             'unit' => $rm->unit,
-            'stock' => (float)$rm->current_stock,
+            'stock' => (float) $rm->current_stock,
         ]);
 
         $pendingCount = MaterialRequisition::where('status', 'requested')->count();
@@ -567,21 +606,23 @@ class OperationsController extends Controller
             'product_id' => 'nullable|exists:products,id',
             'couvert_quantity' => 'nullable|numeric|min:1',
             'items' => 'required|array|min:1',
-            'items.*.raw_material_id' => 'required|exists:raw_materials,id',
-            'items.*.quantity' => 'required|numeric|min:0.1',
+            'items.*.raw_material_id' => 'nullable',
+            'items.*.custom_name' => 'nullable|string|max:255',
+            'items.*.unit' => 'nullable|string|max:50',
+            'items.*.quantity' => 'required|numeric|min:0.01',
             'notes' => 'nullable|string',
         ]);
 
         $productionOrder = null;
-        if (!empty($validated['production_order_id'])) {
+        if (! empty($validated['production_order_id'])) {
             $productionOrder = ProductionOrder::find($validated['production_order_id']);
-        } elseif (!empty($validated['product_id'])) {
+        } elseif (! empty($validated['product_id'])) {
             // Started with a Couvert/Product and customized its materials!
             $product = Product::findOrFail($validated['product_id']);
             $factory = Factory::where('code', 'FAC-COUVERT')->first() ?? Factory::first();
-            $couvertQty = (float)($validated['couvert_quantity'] ?? 10000);
+            $couvertQty = (float) ($validated['couvert_quantity'] ?? 10000);
 
-            $woNumber = 'WO-DIR-' . date('Y') . '-' . str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+            $woNumber = 'WO-DIR-'.date('Y').'-'.str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
             $productionOrder = ProductionOrder::create([
                 'order_number' => $woNumber,
                 'sales_order_id' => null,
@@ -591,31 +632,56 @@ class OperationsController extends Controller
                 'produced_quantity' => 0,
                 'status' => 'ready',
                 'operations_manager_id' => Auth::id(),
-                'instructions' => 'طلب خامات مخصص لإنتاج وتعديل محتويات كوڤير: ' . $product->name,
+                'instructions' => 'طلب خامات مخصص لإنتاج وتعديل محتويات كوڤير: '.$product->name,
             ]);
         } else {
             $productionOrder = ProductionOrder::latest()->first();
         }
 
-        $mrNumber = 'MR-' . date('Y') . '-' . str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
+        $mrNumber = 'MR-'.date('Y').'-'.str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);
         $materialReq = MaterialRequisition::create([
             'req_number' => $mrNumber,
             'production_order_id' => $productionOrder?->id,
             'status' => 'requested',
             'requested_by' => Auth::id(),
             'requested_at' => now(),
-            'notes' => $validated['notes'] ?? ('طلب صرف مستلزمات إنتاج لأمر التشغيل ' . ($productionOrder?->order_number ?? 'مباشر')),
+            'notes' => $validated['notes'] ?? ('طلب صرف مستلزمات إنتاج لأمر التشغيل '.($productionOrder?->order_number ?? 'مباشر')),
         ]);
 
         foreach ($validated['items'] as $item) {
-            $rm = RawMaterial::find($item['raw_material_id']);
-            $needed = (float)$item['quantity'];
-            $stock = $rm ? (float)$rm->current_stock : 0;
+            $rmId = ! empty($item['raw_material_id']) ? $item['raw_material_id'] : null;
+            $customName = trim($item['custom_name'] ?? '');
+            $unit = ! empty($item['unit']) ? $item['unit'] : 'قطعة';
+            $needed = (float) $item['quantity'];
+
+            // If manual item typed by user
+            if (! empty($customName) && (empty($rmId) || $rmId === 'custom')) {
+                $rm = RawMaterial::firstOrCreate(
+                    ['name' => $customName],
+                    [
+                        'code' => 'RM-CUST-'.strtoupper(Str::random(5)),
+                        'unit' => $unit,
+                        'category' => 'raw_material',
+                        'current_stock' => 0,
+                        'unit_cost' => 0,
+                    ]
+                );
+                $rmId = $rm->id;
+            } else {
+                $rm = $rmId ? RawMaterial::find($rmId) : null;
+                if ($rm && empty($item['unit'])) {
+                    $unit = $rm->unit;
+                }
+            }
+
+            $stock = $rm ? (float) $rm->current_stock : 0;
             $missing = max(0, $needed - $stock);
 
             MaterialRequisitionItem::create([
                 'material_requisition_id' => $materialReq->id,
-                'raw_material_id' => $item['raw_material_id'],
+                'raw_material_id' => $rmId ?? 1,
+                'custom_material_name' => ! empty($customName) ? $customName : ($rm?->name),
+                'unit' => $unit,
                 'quantity_requested' => $needed,
                 'quantity_issued' => 0,
                 'quantity_missing' => $missing,
@@ -623,7 +689,7 @@ class OperationsController extends Controller
             ]);
         }
 
-        return back()->with('success', 'تم إرسال طلب صرف الخامات (' . $mrNumber . ') إلى المخزن المركزي بنجاح وبانتظار موافقة وصرف أمين المخزن.');
+        return back()->with('success', 'تم إرسال طلب صرف الخامات ('.$mrNumber.') إلى المخزن المركزي بنجاح وبانتظار موافقة وصرف أمين المخزن.');
     }
 
     public function confirmReceipt(MaterialRequisition $materialRequisition): RedirectResponse
@@ -638,6 +704,6 @@ class OperationsController extends Controller
             $materialRequisition->productionOrder->update(['status' => 'ready']);
         }
 
-        return back()->with('success', 'تم تأكيد استلام الخامات على خط الإنتاج بالمصنع بنجاح (' . $materialRequisition->req_number . ') وبدء الجاهزية للتشغيل.');
+        return back()->with('success', 'تم تأكيد استلام الخامات على خط الإنتاج بالمصنع بنجاح ('.$materialRequisition->req_number.') وبدء الجاهزية للتشغيل.');
     }
 }

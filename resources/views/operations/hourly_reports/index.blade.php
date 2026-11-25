@@ -260,7 +260,7 @@
                 </button>
             </div>
 
-            <form action="{{ route('operations.hourlyReports.store') }}" method="POST" class="space-y-4">
+            <form action="{{ route('operations.hourlyReports.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                 @csrf
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -274,9 +274,16 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">الصنف / المنتج الجاري تشغيله *</label>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-700">الصنف / المنتج الجاري تشغيله *</label>
+                            <button type="button" onclick="toggleCustomProductMode()" class="text-[11px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 transition">
+                                <i class="fa-solid fa-plus-circle"></i>
+                                <span id="customProdToggleText">+ كتابة صنف يدوي ورفع صورة</span>
+                            </button>
+                        </div>
                         <select name="product_id" id="report_product_id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
                             <option value="">-- اختر الصنف لمعاينة الصورة والمحتويات --</option>
+                            <option value="custom" class="bg-blue-50 text-blue-700 font-black">➕ صنف يدوي جديد بالمصنع (كتابة يدوي ورفع صورة)</option>
                             @foreach($products as $prod)
                                 @php
                                     $bomNames = $prod->boms->map(fn($b) => $b->rawMaterial?->name)->filter()->values();
@@ -291,6 +298,36 @@
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+
+                    <!-- Custom Product Input Panel (Shown when writing manual product or uploading custom photo) -->
+                    <div id="custom_product_panel" class="hidden sm:col-span-2 p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-black text-blue-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-pen-to-square text-blue-600"></i>
+                                تسجيل صنف جديد يدوياً بالمصنع ورفع صورته ومواصفاته:
+                            </span>
+                            <button type="button" onclick="cancelCustomProductMode()" class="text-[11px] text-slate-500 hover:text-slate-800 font-bold">
+                                إلغاء والعودة للقائمة
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">اسم الصنف / الكوڤير الجديد *</label>
+                                <input type="text" name="custom_product_name" id="custom_product_name" placeholder="مثال: كوڤير 3 في 1 كبابجي درويش..." class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-700 mb-1">محتويات ومواصفات الكوڤير</label>
+                                <input type="text" name="custom_product_components" id="custom_product_components" placeholder="مثال: معلقة إنجليزي + منديل جاف + خلة أسنان" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl focus:ring-1 focus:ring-blue-600 outline-none">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block font-bold text-slate-700 mb-1">رفع صورة تعريفية لمحتويات الكوڤير / الصنف (مثل صورة أبو طارق):</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="file" name="custom_product_image" id="custom_product_image" accept="image/*" onchange="previewCustomImage(this)" class="w-full text-xs file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+                                    <img id="custom_image_preview_img" src="" class="hidden w-14 h-14 object-cover rounded-xl border border-slate-300 shadow-sm flex-shrink-0">
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Live Product Spec & Visual Card Preview -->
@@ -487,13 +524,24 @@
         const productSelect = document.getElementById('report_product_id');
         function updateProductPreview() {
             const previewBox = document.getElementById('product_preview_box');
+            const panel = document.getElementById('custom_product_panel');
             const img = document.getElementById('preview_prod_img');
             const name = document.getElementById('preview_prod_name');
             const compContainer = document.getElementById('preview_prod_components');
 
             if (!productSelect || !productSelect.value) {
                 if (previewBox) previewBox.classList.add('hidden');
+                if (panel) panel.classList.add('hidden');
                 return;
+            }
+
+            if (productSelect.value === 'custom') {
+                if (panel) panel.classList.remove('hidden');
+                if (previewBox) previewBox.classList.add('hidden');
+                document.getElementById('custom_product_name')?.focus();
+                return;
+            } else {
+                if (panel) panel.classList.add('hidden');
             }
 
             const opt = productSelect.options[productSelect.selectedIndex];
@@ -523,6 +571,54 @@
             updateProductPreview();
         }
     });
+
+    function toggleCustomProductMode() {
+        const panel = document.getElementById('custom_product_panel');
+        const previewBox = document.getElementById('product_preview_box');
+        const productSelect = document.getElementById('report_product_id');
+        if (!panel) return;
+
+        const isHidden = panel.classList.contains('hidden');
+        if (isHidden) {
+            panel.classList.remove('hidden');
+            if (previewBox) previewBox.classList.add('hidden');
+            if (productSelect) productSelect.value = 'custom';
+            document.getElementById('custom_product_name')?.focus();
+        } else {
+            cancelCustomProductMode();
+        }
+    }
+
+    function cancelCustomProductMode() {
+        const panel = document.getElementById('custom_product_panel');
+        const previewBox = document.getElementById('product_preview_box');
+        const productSelect = document.getElementById('report_product_id');
+
+        if (panel) panel.classList.add('hidden');
+        if (productSelect && productSelect.value === 'custom') {
+            productSelect.selectedIndex = productSelect.options.length > 2 ? 2 : 0;
+        }
+        if (previewBox) previewBox.classList.remove('hidden');
+        const opt = productSelect ? productSelect.options[productSelect.selectedIndex] : null;
+        if (opt && opt.getAttribute('data-name')) {
+            document.getElementById('preview_prod_name').innerText = opt.getAttribute('data-name');
+            document.getElementById('preview_prod_img').src = opt.getAttribute('data-image');
+        }
+    }
+
+    function previewCustomImage(input) {
+        const preview = document.getElementById('custom_image_preview_img');
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (preview) {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                }
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
 
     // Image Zoom Modal Functions
     function openImageModal(src) {

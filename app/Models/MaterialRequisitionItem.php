@@ -13,6 +13,8 @@ class MaterialRequisitionItem extends Model
     protected $fillable = [
         'material_requisition_id',
         'raw_material_id',
+        'custom_material_name',
+        'unit',
         'quantity_requested',
         'quantity_issued',
         'quantity_missing',
@@ -25,6 +27,16 @@ class MaterialRequisitionItem extends Model
         'quantity_missing' => 'decimal:2',
         'unit_cost' => 'decimal:4',
     ];
+
+    public function getItemDisplayNameAttribute(): string
+    {
+        return $this->custom_material_name ?: ($this->rawMaterial?->name ?? 'مادة خام غير محددة');
+    }
+
+    public function getUnitDisplayAttribute(): string
+    {
+        return $this->unit ?: ($this->rawMaterial?->unit ?? 'قطعة');
+    }
 
     public function materialRequisition(): BelongsTo
     {
