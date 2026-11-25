@@ -17,6 +17,7 @@ class HourlyMachineReport extends Model
         'product_id',
         'operator_name',
         'report_date',
+        'shift',
         'hour_slot',
         'units_produced',
         'belt_speed_m_min',
@@ -64,6 +65,33 @@ class HourlyMachineReport extends Model
         return $this->product ?? $this->productionOrder?->product;
     }
 
+    public function getShiftNameAttribute(): string
+    {
+        return match ((string) ($this->shift ?? '1')) {
+            '2' => 'الوردية الثانية (المسائية)',
+            '3' => 'الوردية الثالثة (الليلية)',
+            default => 'الوردية الأولى (الصباحية)',
+        };
+    }
+
+    public function getShiftLabelAttribute(): string
+    {
+        return match ((string) ($this->shift ?? '1')) {
+            '2' => 'وردية 2',
+            '3' => 'وردية 3',
+            default => 'وردية 1',
+        };
+    }
+
+    public function getShiftBadgeClassAttribute(): string
+    {
+        return match ((string) ($this->shift ?? '1')) {
+            '2' => 'bg-amber-100 text-amber-900 border-amber-300',
+            '3' => 'bg-indigo-100 text-indigo-900 border-indigo-300',
+            default => 'bg-blue-100 text-blue-900 border-blue-300',
+        };
+    }
+
     public function getIsEditableAttribute(): bool
     {
         $todayStr = now()->toDateString();
@@ -90,11 +118,11 @@ class HourlyMachineReport extends Model
     {
         $notes = [];
         if ($efficiency >= 90) {
-            $notes[] = "الأداء ممتاز والماكينة تعمل بكفاءة تشغيلية مثالية أعلى من 90%. يوصى بالحفاظ على نفس معدل التغذية ونظافة السير.";
+            $notes[] = 'الأداء ممتاز والماكينة تعمل بكفاءة تشغيلية مثالية أعلى من 90%. يوصى بالحفاظ على نفس معدل التغذية ونظافة السير.';
         } elseif ($efficiency >= 75) {
-            $notes[] = "الكفاءة متوسطة (مقبولة). تم رصد تفاوت طفيف في معدل الإنتاج؛ يرجى فحص ضغط الهواء وتوافق سرعة السير.";
+            $notes[] = 'الكفاءة متوسطة (مقبولة). تم رصد تفاوت طفيف في معدل الإنتاج؛ يرجى فحص ضغط الهواء وتوافق سرعة السير.';
         } else {
-            $notes[] = "تنبيه تشغيلي حرج: كفاءة الماكينة منخفضة جداً دون الحد الأدنى. توقفات متكررة أو هادر مرتفع يتطلب تدخل فوري من مهندس الصيانة.";
+            $notes[] = 'تنبيه تشغيلي حرج: كفاءة الماكينة منخفضة جداً دون الحد الأدنى. توقفات متكررة أو هادر مرتفع يتطلب تدخل فوري من مهندس الصيانة.';
         }
 
         if ($waste > 20) {
@@ -106,7 +134,7 @@ class HourlyMachineReport extends Model
         }
 
         if ($speed < ($ratedSpeed * 0.8)) {
-            $notes[] = "سرعة السير الحالية أقل من السرعة المعيارية المصممة للماكينة بنسبة 20%. إمكانية رفع السرعة تدريجياً لزيادة الطاقة الإنتاجية.";
+            $notes[] = 'سرعة السير الحالية أقل من السرعة المعيارية المصممة للماكينة بنسبة 20%. إمكانية رفع السرعة تدريجياً لزيادة الطاقة الإنتاجية.';
         }
 
         return implode(' ', $notes);

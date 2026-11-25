@@ -294,6 +294,7 @@ class OperationsController extends Controller
     {
         $rawDate = $request->get('date');
         $machineId = $request->get('machine_id');
+        $shift = $request->get('shift');
 
         $query = HourlyMachineReport::with([
             'machine.factory',
@@ -329,8 +330,13 @@ class OperationsController extends Controller
             $query->where('machine_id', $machineId);
         }
 
-        // Chronological order for the day: date descending, then hour slot ascending
+        if ($shift && $shift !== 'all') {
+            $query->where('shift', $shift);
+        }
+
+        // Chronological order for the day: date descending, shift ascending, then hour slot ascending
         $reports = $query->orderBy('report_date', 'desc')
+            ->orderBy('shift', 'asc')
             ->orderBy('hour_slot', 'asc')
             ->paginate(30)
             ->withQueryString();
@@ -351,11 +357,26 @@ class OperationsController extends Controller
         if ($machineId) {
             $summaryQuery->where('machine_id', $machineId);
         }
+        if ($shift && $shift !== 'all') {
+            $summaryQuery->where('shift', $shift);
+        }
 
         $totalProduced = (float) $summaryQuery->sum('units_produced');
         $avgEfficiency = (float) ($summaryQuery->avg('efficiency_rate') ?? 0);
         $totalDowntime = (int) $summaryQuery->sum('downtime_minutes');
         $totalWaste = (float) $summaryQuery->sum('waste_units');
+
+        // Per Shift output breakdown
+        $baseDateQuery = HourlyMachineReport::query();
+        if ($selectedDate) {
+            $baseDateQuery->whereDate('report_date', $selectedDate);
+        }
+        if ($machineId) {
+            $baseDateQuery->where('machine_id', $machineId);
+        }
+        $shift1Output = (float) (clone $baseDateQuery)->where('shift', '1')->sum('units_produced');
+        $shift2Output = (float) (clone $baseDateQuery)->where('shift', '2')->sum('units_produced');
+        $shift3Output = (float) (clone $baseDateQuery)->where('shift', '3')->sum('units_produced');
 
         $date = $selectedDate;
 
@@ -368,10 +389,14 @@ class OperationsController extends Controller
             'date',
             'selectedDate',
             'machineId',
+            'shift',
             'totalProduced',
             'avgEfficiency',
             'totalDowntime',
-            'totalWaste'
+            'totalWaste',
+            'shift1Output',
+            'shift2Output',
+            'shift3Output'
         ));
     }
 
@@ -381,6 +406,7 @@ class OperationsController extends Controller
             'machine_id' => 'required|exists:machines,id',
             'operator_name' => 'required|string|max:255',
             'report_date' => 'required|date',
+            'shift' => 'nullable|string|in:1,2,3',
             'hour_slot' => 'required|string|max:50',
             'units_produced' => 'required|numeric|min:0',
             'belt_speed_m_min' => 'required|numeric|min:0.01',
@@ -471,6 +497,7 @@ class OperationsController extends Controller
             'product_id' => $prodId,
             'operator_name' => $validated['operator_name'],
             'report_date' => $validated['report_date'],
+            'shift' => $validated['shift'] ?? '1',
             'hour_slot' => $validated['hour_slot'],
             'units_produced' => $unitsProduced,
             'belt_speed_m_min' => $speed,
@@ -487,7 +514,8 @@ class OperationsController extends Controller
         return redirect()->route('operations.hourlyReports', [
             'date' => $validated['report_date'],
             'machine_id' => $machine->id,
-        ])->with('success', 'تم تسجيل تقرير الساعة ('.$validated['hour_slot'].') بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة '.$eff.'% وتحديث المؤشرات للإدارة العليا.');
+            'shift' => $validated['shift'] ?? '1',
+        ])->with('success', 'تم تسجيل تقرير الساعة ('.$validated['hour_slot'].') للوردية بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة '.$eff.'% وتحديث المؤشرات للإدارة العليا.');
     }
 
     public function updateHourlyReport(Request $request, HourlyMachineReport $hourlyMachineReport): RedirectResponse
@@ -498,6 +526,8 @@ class OperationsController extends Controller
 
         $validated = $request->validate([
             'operator_name' => 'required|string|max:255',
+            'shift' => 'nullable|string|in:1,2,3',
+            'hour_slot' => 'nullable|string|max:50',
             'product_id' => 'nullable|exists:products,id',
             'units_produced' => 'required|numeric|min:0',
             'belt_speed_m_min' => 'required|numeric|min:0.01',
@@ -526,6 +556,8 @@ class OperationsController extends Controller
 
         $hourlyMachineReport->update([
             'operator_name' => $validated['operator_name'],
+            'shift' => $validated['shift'] ?? $hourlyMachineReport->shift ?? '1',
+            'hour_slot' => $validated['hour_slot'] ?? $hourlyMachineReport->hour_slot,
             'product_id' => $validated['product_id'] ?? $hourlyMachineReport->product_id,
             'units_produced' => $unitsProduced,
             'belt_speed_m_min' => $speed,

@@ -5,15 +5,19 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\DailyInventoryCheck;
 use App\Models\Factory;
-use App\Models\FinancialTransaction;
+use App\Models\HourlyMachineReport;
 use App\Models\Machine;
-use App\Models\ProductionOrder;
+use App\Models\MaterialRequisition;
 use App\Models\Product;
+use App\Models\ProductionOrder;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseRequisition;
 use App\Models\RawMaterial;
 use App\Models\SalesOrder;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Models\WarehouseArchivedReport;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class AlfaErpEndToEndTest extends TestCase
@@ -55,7 +59,7 @@ class AlfaErpEndToEndTest extends TestCase
 
         foreach ($allUsers as $u) {
             // Test 1-click GET fast login
-            $response = $this->get('/login/fast/' . $u->id);
+            $response = $this->get('/login/fast/'.$u->id);
             $response->assertRedirect('/dashboard');
             $response->assertSessionMissing('error');
             $response->assertSessionHas('success');
@@ -156,7 +160,7 @@ class AlfaErpEndToEndTest extends TestCase
         $response->assertSee('14%');
 
         $firstFactory = $factories->first();
-        $responseFac = $this->actingAs($gm)->get('/factories/' . $firstFactory->id);
+        $responseFac = $this->actingAs($gm)->get('/factories/'.$firstFactory->id);
         $responseFac->assertStatus(200);
     }
 
@@ -170,7 +174,7 @@ class AlfaErpEndToEndTest extends TestCase
         // 1. Voucher
         $voucher = StockMovement::first();
         if ($voucher) {
-            $resp = $this->actingAs($gm)->get('/print/voucher/' . $voucher->id);
+            $resp = $this->actingAs($gm)->get('/print/voucher/'.$voucher->id);
             $resp->assertStatus(200);
             $resp->assertSee($voucher->voucher_number);
         }
@@ -178,7 +182,7 @@ class AlfaErpEndToEndTest extends TestCase
         // 2. Work Order
         $workOrder = ProductionOrder::first();
         if ($workOrder) {
-            $resp = $this->actingAs($gm)->get('/print/work-order/' . $workOrder->id);
+            $resp = $this->actingAs($gm)->get('/print/work-order/'.$workOrder->id);
             $resp->assertStatus(200);
             $resp->assertSee($workOrder->order_number);
         }
@@ -186,7 +190,7 @@ class AlfaErpEndToEndTest extends TestCase
         // 3. Purchase Order
         $po = PurchaseOrder::first();
         if ($po) {
-            $resp = $this->actingAs($gm)->get('/print/purchase-order/' . $po->id);
+            $resp = $this->actingAs($gm)->get('/print/purchase-order/'.$po->id);
             $resp->assertStatus(200);
             $resp->assertSee($po->po_number);
         }
@@ -194,7 +198,7 @@ class AlfaErpEndToEndTest extends TestCase
         // 4. Daily Check
         $check = DailyInventoryCheck::first();
         if ($check) {
-            $resp = $this->actingAs($gm)->get('/print/daily-check/' . $check->id);
+            $resp = $this->actingAs($gm)->get('/print/daily-check/'.$check->id);
             $resp->assertStatus(200);
             $resp->assertSee($check->check_number);
         }
@@ -202,7 +206,7 @@ class AlfaErpEndToEndTest extends TestCase
         // 5. Sales Invoice
         $order = SalesOrder::first();
         if ($order) {
-            $resp = $this->actingAs($gm)->get('/print/sales-invoice/' . $order->id);
+            $resp = $this->actingAs($gm)->get('/print/sales-invoice/'.$order->id);
             $resp->assertStatus(200);
             $resp->assertSee($order->order_number);
         }
@@ -233,8 +237,8 @@ class AlfaErpEndToEndTest extends TestCase
                     'quantity' => 15000,
                     'unit_price' => $product->selling_price,
                     'notes' => 'تغليف سيلوفان أزرق',
-                ]
-            ]
+                ],
+            ],
         ];
 
         $respOrder = $this->actingAs($salesUser)->post('/sales/orders', $orderData);
@@ -256,7 +260,7 @@ class AlfaErpEndToEndTest extends TestCase
             'notes' => 'تشغيل فوري',
         ];
 
-        $respSched = $this->actingAs($opsUser)->post('/operations/schedule/' . $newOrder->id, $scheduleData);
+        $respSched = $this->actingAs($opsUser)->post('/operations/schedule/'.$newOrder->id, $scheduleData);
         $respSched->assertRedirect();
 
         $workOrder = ProductionOrder::where('sales_order_id', $newOrder->id)->first();
@@ -273,15 +277,15 @@ class AlfaErpEndToEndTest extends TestCase
                     'quantity' => 5000,
                     'unit' => $rawMaterial->unit,
                     'is_missing' => 1,
-                ]
-            ]
+                ],
+            ],
         ];
 
         // Step 4: Purchasing quotes Lead Time (e.g. 2 days)
         // Test that lead time immediately reflects on sales confirmed delivery date
-        $purchasingRequisition = \App\Models\PurchaseRequisition::first();
+        $purchasingRequisition = PurchaseRequisition::first();
         if ($purchasingRequisition) {
-            $respLeadTime = $this->actingAs($purchasingUser)->post('/purchasing/requisitions/' . $purchasingRequisition->id . '/lead-time', [
+            $respLeadTime = $this->actingAs($purchasingUser)->post('/purchasing/requisitions/'.$purchasingRequisition->id.'/lead-time', [
                 'procurement_lead_time_days' => 4,
                 'supplier_delivery_date' => now()->addDays(4)->toDateString(),
                 'procurement_notes' => 'المورد أكد التوصيل خلال 4 أيام',
@@ -294,7 +298,7 @@ class AlfaErpEndToEndTest extends TestCase
         $this->assertDatabaseHas('machines', ['code' => 'MCH-CVR-04']);
         $this->assertDatabaseHas('machines', ['code' => 'MCH-GLV-PCK02']);
 
-        $productAbu = \App\Models\Product::where('code', 'PROD-CVR-4IN1-ABU')->first();
+        $productAbu = Product::where('code', 'PROD-CVR-4IN1-ABU')->first();
 
         // Test the exact management formula from Image 3:
         // Speed: 45 pieces/min -> Theoretical: 45 * 60 = 2700 pieces/hour
@@ -302,8 +306,9 @@ class AlfaErpEndToEndTest extends TestCase
         $reportData = [
             'machine_id' => $machine->id,
             'product_id' => $productAbu ? $productAbu->id : null,
-            'operator_name' => 'مشغل وردية الصباح',
+            'operator_name' => 'مشغل وردية المساء',
             'report_date' => now()->toDateString(),
+            'shift' => '2',
             'hour_slot' => '16:00 - 17:00',
             'units_produced' => 2250,
             'belt_speed_m_min' => 45.0,
@@ -316,23 +321,53 @@ class AlfaErpEndToEndTest extends TestCase
         $respHourly = $this->actingAs($opsUser)->post('/operations/hourly-reports', $reportData);
         $respHourly->assertRedirect();
 
-        $savedReport = \App\Models\HourlyMachineReport::where('machine_id', $machine->id)
+        $savedReport = HourlyMachineReport::where('machine_id', $machine->id)
             ->where('hour_slot', '16:00 - 17:00')
             ->latest('id')
             ->first();
         $this->assertNotNull($savedReport);
-        $this->assertEquals(83.33, (float)$savedReport->efficiency_rate);
+        $this->assertEquals('2', $savedReport->shift);
+        $this->assertEquals('الوردية الثانية (المسائية)', $savedReport->shift_name);
+        $this->assertEquals(83.33, (float) $savedReport->efficiency_rate);
         $this->assertNotNull($savedReport->ai_smart_recommendation);
         $this->assertEquals($productAbu?->id, $savedReport->product_id);
+
+        // Also test creating Shift 1 & Shift 3 reports to verify 3 shifts coverage
+        $reportShift1 = [
+            'machine_id' => $machine->id,
+            'operator_name' => 'مشغل وردية الصباح',
+            'report_date' => now()->toDateString(),
+            'shift' => '1',
+            'hour_slot' => '08:00 - 09:00',
+            'units_produced' => 2400,
+            'belt_speed_m_min' => 45.0,
+        ];
+        $this->actingAs($opsUser)->post('/operations/hourly-reports', $reportShift1)->assertRedirect();
+
+        $reportShift3 = [
+            'machine_id' => $machine->id,
+            'operator_name' => 'مشغل وردية الليل',
+            'report_date' => now()->toDateString(),
+            'shift' => '3',
+            'hour_slot' => '00:00 - 01:00',
+            'units_produced' => 2100,
+            'belt_speed_m_min' => 45.0,
+        ];
+        $this->actingAs($opsUser)->post('/operations/hourly-reports', $reportShift3)->assertRedirect();
+
+        // Verify shift filtering in UI
+        $respShiftFilter = $this->actingAs($opsUser)->get('/operations/hourly-reports?shift=2');
+        $respShiftFilter->assertOk();
+        $respShiftFilter->assertSee('الوردية الثانية');
 
         // Step 6: Test Operations Material Requisitions & Confirming Receipt from Warehouse
         $respReqIndex = $this->actingAs($opsUser)->get('/operations/requisitions');
         $respReqIndex->assertOk();
 
-        $testRequisition = \App\Models\MaterialRequisition::first();
+        $testRequisition = MaterialRequisition::first();
         if ($testRequisition) {
             $testRequisition->update(['status' => 'issued']);
-            $respConfirm = $this->actingAs($opsUser)->post('/operations/requisitions/' . $testRequisition->id . '/confirm-receipt');
+            $respConfirm = $this->actingAs($opsUser)->post('/operations/requisitions/'.$testRequisition->id.'/confirm-receipt');
             $respConfirm->assertRedirect();
             $this->assertEquals('received', $testRequisition->fresh()->status);
         }
@@ -385,7 +420,7 @@ class AlfaErpEndToEndTest extends TestCase
             'notes' => 'جدولة تصنيع كافة أصناف العميل',
         ];
 
-        $respMultiSched = $this->actingAs($opsUser)->post('/operations/schedule/' . $multiOrder->id, $scheduleMultiData);
+        $respMultiSched = $this->actingAs($opsUser)->post('/operations/schedule/'.$multiOrder->id, $scheduleMultiData);
         $respMultiSched->assertRedirect();
 
         $workOrdersCount = ProductionOrder::where('sales_order_id', $multiOrder->id)->count();
@@ -395,6 +430,8 @@ class AlfaErpEndToEndTest extends TestCase
         if ($savedReport) {
             $updateHourlyData = [
                 'operator_name' => 'مشغل وردية الصباح - معدل',
+                'shift' => '2',
+                'hour_slot' => '16:00 - 17:00',
                 'product_id' => $productAbu ? $productAbu->id : null,
                 'units_produced' => 2400,
                 'belt_speed_m_min' => 45.0, // 45 * 60 = 2700, Eff = (2400 / 2700) * 100 = 88.89%
@@ -403,10 +440,10 @@ class AlfaErpEndToEndTest extends TestCase
                 'downtime_reason' => 'نظافة سير سريعة',
                 'actions_taken' => 'تم استئناف الإنتاج بكفاءة عالية',
             ];
-            $respUpdateHourly = $this->actingAs($opsUser)->post('/operations/hourly-reports/' . $savedReport->id . '/update', $updateHourlyData);
+            $respUpdateHourly = $this->actingAs($opsUser)->post('/operations/hourly-reports/'.$savedReport->id.'/update', $updateHourlyData);
             $respUpdateHourly->assertRedirect();
-            $this->assertEquals(2400, (float)$savedReport->fresh()->units_produced);
-            $this->assertEquals(88.89, (float)$savedReport->fresh()->efficiency_rate);
+            $this->assertEquals(2400, (float) $savedReport->fresh()->units_produced);
+            $this->assertEquals(88.89, (float) $savedReport->fresh()->efficiency_rate);
         }
 
         // Test Starting with Couvert and customized materials directly for warehouse
@@ -423,7 +460,7 @@ class AlfaErpEndToEndTest extends TestCase
         ];
         $respCustomReq = $this->actingAs($opsUser)->post('/operations/requisitions', $customCouvertReqData);
         $respCustomReq->assertRedirect();
-        $latestCustomReq = \App\Models\MaterialRequisition::latest('id')->first();
+        $latestCustomReq = MaterialRequisition::latest('id')->first();
         $this->assertNotNull($latestCustomReq);
         $this->assertStringContainsString('أبو طارق', $latestCustomReq->notes);
     }
@@ -459,7 +496,7 @@ class AlfaErpEndToEndTest extends TestCase
         ];
 
         foreach ($reportTypes as $type) {
-            $repResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports?report_type=' . $type);
+            $repResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports?report_type='.$type);
             $repResponse->assertStatus(200);
         }
 
@@ -496,7 +533,7 @@ class AlfaErpEndToEndTest extends TestCase
         $archiveResponse = $this->actingAs($warehouseUser)->post('/warehouse/reports/archive', $archiveData);
         $archiveResponse->assertRedirect();
 
-        $archivedReport = \App\Models\WarehouseArchivedReport::latest('id')->first();
+        $archivedReport = WarehouseArchivedReport::latest('id')->first();
         $this->assertNotNull($archivedReport);
         $this->assertStringStartsWith('WH-REP-', $archivedReport->report_number);
         $this->assertEquals('م. أحمد حمدي - فني خطوط أوتوباك', $archivedReport->recipient_name);
@@ -507,7 +544,7 @@ class AlfaErpEndToEndTest extends TestCase
         $listResponse->assertStatus(200);
         $listResponse->assertSee($archivedReport->report_number);
 
-        $showResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports/archived/' . $archivedReport->id);
+        $showResponse = $this->actingAs($warehouseUser)->get('/warehouse/reports/archived/'.$archivedReport->id);
         $showResponse->assertStatus(200);
         $showResponse->assertSee($archivedReport->report_number);
         $showResponse->assertSee('م. أحمد حمدي - فني خطوط أوتوباك');
@@ -564,7 +601,7 @@ class AlfaErpEndToEndTest extends TestCase
             'product_id' => 'custom',
             'custom_product_name' => 'كوڤير كبابجي درويش 3 في 1',
             'custom_product_components' => 'معلقة بلاستيك + منديل جاف + خلة أسنان',
-            'custom_product_image' => \Illuminate\Http\UploadedFile::fake()->image('darwish_couvert.jpg'),
+            'custom_product_image' => UploadedFile::fake()->image('darwish_couvert.jpg'),
         ];
 
         $respHourly = $this->actingAs($opsUser)->post('/operations/hourly-reports', $manualProdData);
@@ -575,9 +612,9 @@ class AlfaErpEndToEndTest extends TestCase
         $this->assertNotNull($createdProduct->image);
         $this->assertStringStartsWith('uploads/products/prod_', $createdProduct->image);
 
-        $hourlyReport = \App\Models\HourlyMachineReport::where('product_id', $createdProduct->id)->latest('id')->first();
+        $hourlyReport = HourlyMachineReport::where('product_id', $createdProduct->id)->latest('id')->first();
         $this->assertNotNull($hourlyReport);
-        $this->assertEquals(2500, (float)$hourlyReport->units_produced);
+        $this->assertEquals(2500, (float) $hourlyReport->units_produced);
 
         // 2. Submit Material Requisition with Manual Custom Item in Kilograms
         $reqData = [
@@ -595,26 +632,28 @@ class AlfaErpEndToEndTest extends TestCase
         $respReq = $this->actingAs($opsUser)->post('/operations/requisitions', $reqData);
         $respReq->assertRedirect();
 
-        $latestReq = \App\Models\MaterialRequisition::latest('id')->first();
+        $latestReq = MaterialRequisition::latest('id')->first();
         $this->assertNotNull($latestReq);
         $firstItem = $latestReq->items()->first();
         $this->assertNotNull($firstItem);
         $this->assertEquals('رول فيلم سيلوفان بوب مخصوص بالوزن', $firstItem->item_display_name);
         $this->assertEquals('كجم', $firstItem->unit_display);
-        $this->assertEquals(85.50, (float)$firstItem->quantity_requested);
+        $this->assertEquals(85.50, (float) $firstItem->quantity_requested);
 
         // 3. Test Warehouse Can View & Issue This Kilogram Requisition
         $whUser = User::where('role', 'warehouse')->first() ?? User::where('role', 'owner')->first();
-        $respWhShow = $this->actingAs($whUser)->get('/warehouse/material-requisitions/' . $latestReq->id);
+        $respWhShow = $this->actingAs($whUser)->get('/warehouse/material-requisitions/'.$latestReq->id);
         $respWhShow->assertStatus(200);
         $respWhShow->assertSee('رول فيلم سيلوفان بوب مخصوص بالوزن');
         $respWhShow->assertSee('كجم');
 
-        $respIssue = $this->actingAs($whUser)->post('/warehouse/material-requisitions/' . $latestReq->id . '/issue');
+        $respIssue = $this->actingAs($whUser)->post('/warehouse/material-requisitions/'.$latestReq->id.'/issue');
         $respIssue->assertRedirect();
 
         // Clean up created test records
-        if ($hourlyReport) $hourlyReport->delete();
+        if ($hourlyReport) {
+            $hourlyReport->delete();
+        }
         if ($createdProduct) {
             if ($createdProduct->image && file_exists(public_path($createdProduct->image))) {
                 @unlink(public_path($createdProduct->image));
