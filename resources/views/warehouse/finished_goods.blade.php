@@ -51,7 +51,7 @@
         <div>
             <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-box-open text-emerald-600"></i>
-                <span>مخزن المنتج التام (الكوڤير والأصناف الجاهزة للتسليم والبيع)</span>
+                <span>مخزن المنتج التام (الكوڤير، عبوات الوايبس، علب الجوانتي)</span>
             </h1>
             <p class="text-xs text-slate-500 mt-1">متابعة دقيقة لأرصدة الكوڤير الجاهزة للتسليم للعملاء أو البيع المباشر للغير مع الترحيل المالي الآلي</p>
         </div>

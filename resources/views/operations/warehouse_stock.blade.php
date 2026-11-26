@@ -23,7 +23,7 @@
         <div class="flex items-center gap-2">
             <a href="{{ route('operations.requisitions') }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
                 <i class="fa-solid fa-clipboard-list"></i>
-                <span>طلبات صرف الخامات</span>
+                <span>طلب صرف خامات للمصنع</span>
             </a>
             <a href="{{ route('operations.index') }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1">
                 <span>← لوحة التشغيل</span>
