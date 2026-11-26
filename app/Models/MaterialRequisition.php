@@ -52,7 +52,7 @@ class MaterialRequisition extends Model
 
     public function getStatusBadgeAttribute(): array
     {
-        return match($this->status) {
+        return match ($this->status) {
             'received' => ['label' => 'تم الاستلام بالمصنع', 'color' => 'bg-emerald-100 text-emerald-800 border-emerald-300'],
             'issued' => ['label' => 'تم الصرف - بانتظار استلام المصنع', 'color' => 'bg-blue-100 text-blue-800 border-blue-300'],
             'partial_issued' => ['label' => 'صرف جزئي', 'color' => 'bg-amber-100 text-amber-800 border-amber-300'],

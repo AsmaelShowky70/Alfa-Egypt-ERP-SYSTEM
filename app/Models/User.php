@@ -88,6 +88,7 @@ class User extends Authenticatable
         if (is_array($roles)) {
             return in_array($this->role, $roles);
         }
+
         return $this->role === $roles;
     }
 
@@ -111,6 +112,7 @@ class User extends Authenticatable
         if ($this->avatar && file_exists(public_path($this->avatar))) {
             return asset($this->avatar);
         }
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=008060&color=fff&size=128';
+
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=008060&color=fff&size=128';
     }
 }

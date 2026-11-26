@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\DailyInventoryCheck;
 use App\Models\Factory;
+use App\Models\FinancialTransaction;
 use App\Models\HourlyMachineReport;
 use App\Models\Machine;
 use App\Models\MaterialRequisition;
@@ -15,6 +16,7 @@ use App\Models\PurchaseRequisition;
 use App\Models\RawMaterial;
 use App\Models\SalesOrder;
 use App\Models\StockMovement;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Models\WarehouseArchivedReport;
 use Illuminate\Http\UploadedFile;
@@ -693,5 +695,143 @@ class AlfaErpEndToEndTest extends TestCase
             $latestReq->items()->delete();
             $latestReq->delete();
         }
+    }
+
+    /**
+     * 14. Test Financial Module Navigation and Views
+     */
+    public function test_financial_module_views_render_successfully(): void
+    {
+        $financeUser = User::where('role', 'finance')->first() ?? User::where('role', 'owner')->first();
+
+        // 1. Financial Dashboard
+        $resp = $this->actingAs($financeUser)->get('/finance');
+        $resp->assertStatus(200);
+        $resp->assertSee('الإدارة المالية والحسابات المركزية');
+        $resp->assertSee('رصيد الخزينة');
+
+        // 2. Customers List
+        $respCust = $this->actingAs($financeUser)->get('/finance/customers');
+        $respCust->assertStatus(200);
+        $respCust->assertSee('كشري أبو طارق');
+        $respCust->assertSee('سند قبض');
+
+        // 3. Customer Statement
+        $cust = Customer::where('name', 'like', '%أبو طارق%')->first();
+        if ($cust) {
+            $respStmt = $this->actingAs($financeUser)->get('/finance/customers/'.$cust->id.'/statement');
+            $respStmt->assertStatus(200);
+            $respStmt->assertSee('كشف حساب عميل تفصيلي');
+            $respStmt->assertSee('شركة الفا ايجبت');
+        }
+
+        // 4. Suppliers List
+        $respSup = $this->actingAs($financeUser)->get('/finance/suppliers');
+        $respSup->assertStatus(200);
+        $respSup->assertSee('حمزة السوري');
+        $respSup->assertSee('سند صرف');
+
+        // 5. Supplier Statement
+        $sup = Supplier::where('name', 'like', '%حمزة%')->first();
+        if ($sup) {
+            $respSupStmt = $this->actingAs($financeUser)->get('/finance/suppliers/'.$sup->id.'/statement');
+            $respSupStmt->assertStatus(200);
+            $respSupStmt->assertSee('كشف حساب مورد تفصيلي');
+        }
+
+        // 6. Treasury
+        $respTreasury = $this->actingAs($financeUser)->get('/finance/treasury');
+        $respTreasury->assertStatus(200);
+        $respTreasury->assertSee('حركة الخزينة والسيولة النقدية');
+
+        // 7. Expenses
+        $respExpenses = $this->actingAs($financeUser)->get('/finance/expenses');
+        $respExpenses->assertStatus(200);
+        $respExpenses->assertSee('المصروفات العمومية والإدارية والتشغيلية');
+
+        // 8. General Journal
+        $respJournal = $this->actingAs($financeUser)->get('/finance/journal');
+        $respJournal->assertStatus(200);
+        $respJournal->assertSee('دفتر اليومية العامة والقيود المزدوجة');
+
+        // 9. October Financial Analysis
+        $respOct = $this->actingAs($financeUser)->get('/finance/analysis/october');
+        $respOct->assertStatus(200);
+        $respOct->assertSee('التقرير والتحليل المالي لشهري سبتمبر وأكتوبر 2026');
+    }
+
+    /**
+     * 15. Test Customer Payment Receipt & Supplier Payment Voucher & Manual Journal Entry
+     */
+    public function test_financial_transactions_and_double_entry_postings(): void
+    {
+        $financeUser = User::where('role', 'finance')->first() ?? User::where('role', 'owner')->first();
+
+        // 1. Customer Payment Receipt
+        $cust = Customer::first();
+        $this->assertNotNull($cust);
+        $oldCollected = $cust->total_collected;
+
+        $paymentData = [
+            'amount' => 5000.00,
+            'payment_method' => 'نقدي',
+            'transaction_date' => date('Y-m-d'),
+            'description' => 'سداد نقدي من العميل دفعة تجريبية',
+        ];
+        $respPay = $this->actingAs($financeUser)->post('/finance/customers/'.$cust->id.'/payment', $paymentData);
+        $respPay->assertRedirect();
+
+        $cust->refresh();
+        $this->assertEquals($oldCollected + 5000.00, $cust->total_collected);
+
+        // 2. Supplier Payment Voucher
+        $sup = Supplier::first();
+        $this->assertNotNull($sup);
+        $oldPaid = $sup->total_paid;
+
+        $supPayData = [
+            'amount' => 3500.00,
+            'payment_method' => 'نقدي',
+            'transaction_date' => date('Y-m-d'),
+            'description' => 'سند صرف نقدية لمورد تجريبي',
+        ];
+        $respSupPay = $this->actingAs($financeUser)->post('/finance/suppliers/'.$sup->id.'/payment', $supPayData);
+        $respSupPay->assertRedirect();
+
+        $sup->refresh();
+        $this->assertEquals($oldPaid + 3500.00, $sup->total_paid);
+
+        // 3. Record General Expense
+        $expData = [
+            'category' => 'سولار ووقود مولدات وسيارات',
+            'amount' => 1200.00,
+            'transaction_date' => date('Y-m-d'),
+            'payment_method' => 'نقدي',
+            'description' => 'شراء سولار لمولد الكهرباء',
+        ];
+        $respExp = $this->actingAs($financeUser)->post('/finance/expenses', $expData);
+        $respExp->assertRedirect();
+
+        $latestExp = FinancialTransaction::where('type', 'expense')->latest('id')->first();
+        $this->assertNotNull($latestExp);
+        $this->assertEquals(1200.00, (float) $latestExp->amount);
+        $this->assertEquals('سولار ووقود مولدات وسيارات', $latestExp->category);
+
+        // 4. Record Manual Journal Entry
+        $jrnData = [
+            'debit_account' => 'حـ/ أصول ثابتة - ماكينات تصنيع',
+            'credit_account' => 'حـ/ الخزينة الرئيسية',
+            'amount' => 25000.00,
+            'transaction_date' => date('Y-m-d'),
+            'description' => 'قيد تسوية شراء ماكينة تغليف إضافية',
+        ];
+        $respJrn = $this->actingAs($financeUser)->post('/finance/journal', $jrnData);
+        $respJrn->assertRedirect();
+
+        $latestJrn = FinancialTransaction::where('type', 'manual_journal')->latest('id')->first();
+        $this->assertNotNull($latestJrn);
+        $this->assertEquals(25000.00, (float) $latestJrn->amount);
+        $this->assertEquals('حـ/ أصول ثابتة - ماكينات تصنيع', $latestJrn->debit_account);
+        $this->assertEquals('حـ/ الخزينة الرئيسية', $latestJrn->credit_account);
     }
 }

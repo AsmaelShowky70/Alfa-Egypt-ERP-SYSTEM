@@ -6,7 +6,6 @@ use App\Models\Factory;
 use App\Models\HourlyMachineReport;
 use App\Models\Machine;
 use App\Models\RawMaterial;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,7 +14,7 @@ class MaintenanceController extends Controller
 {
     public function index(): View
     {
-        $machines = Machine::with(['factory', 'hourlyReports' => fn($q) => $q->latest()->take(5)])->get();
+        $machines = Machine::with(['factory', 'hourlyReports' => fn ($q) => $q->latest()->take(5)])->get();
         $spareParts = RawMaterial::where('category', 'spare_part')->get();
         $recentDowntime = HourlyMachineReport::with(['machine.factory'])
             ->where('downtime_minutes', '>', 0)

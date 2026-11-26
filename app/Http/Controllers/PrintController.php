@@ -14,6 +14,7 @@ class PrintController extends Controller
     public function voucher(StockMovement $voucher): View
     {
         $voucher->load(['warehouseManager', 'items']);
+
         return view('print.voucher', compact('voucher'));
     }
 
@@ -24,8 +25,9 @@ class PrintController extends Controller
             'product.boms.rawMaterial',
             'machine',
             'salesOrder.customer',
-            'operationsManager'
+            'operationsManager',
         ]);
+
         return view('print.work_order', compact('productionOrder'));
     }
 
@@ -35,20 +37,23 @@ class PrintController extends Controller
             'supplier',
             'fromFactory',
             'purchasingManager',
-            'items.rawMaterial'
+            'items.rawMaterial',
         ]);
+
         return view('print.purchase_order', compact('purchaseOrder'));
     }
 
     public function dailyInventoryCheck(DailyInventoryCheck $dailyCheck): View
     {
         $dailyCheck->load(['warehouseManager', 'items']);
+
         return view('print.daily_inventory_check', compact('dailyCheck'));
     }
 
     public function salesInvoice(SalesOrder $order): View
     {
         $order->load(['customer', 'salesRep', 'items.product']);
+
         return view('print.sales_invoice', compact('order'));
     }
 }

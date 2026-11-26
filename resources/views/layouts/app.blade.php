@@ -363,12 +363,36 @@
                 @if(Auth::user()->isOwner() || Auth::user()->isGM() || Auth::user()->isFinance())
                 <div class="space-y-1">
                     <div class="flex items-center justify-between px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        <span>المالية والتكاليف</span>
+                        <span>المالية والحسابات والقيود</span>
                         <i class="fa-solid fa-scale-balanced text-teal-500"></i>
                     </div>
                     <a href="{{ route('finance.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.index') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
-                        <i class="fa-solid fa-coins text-teal-600"></i>
-                        <span>المصروفات والإيرادات والفواتير</span>
+                        <i class="fa-solid fa-chart-line text-teal-600"></i>
+                        <span>لوحة الحسابات والسيولة</span>
+                    </a>
+                    <a href="{{ route('finance.customers') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.customers*') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-users text-teal-600"></i>
+                        <span>مستحقات العملاء وسندات القبض</span>
+                    </a>
+                    <a href="{{ route('finance.suppliers') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.suppliers*') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-handshake text-teal-600"></i>
+                        <span>حسابات الموردين والعربونات</span>
+                    </a>
+                    <a href="{{ route('finance.treasury') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.treasury*') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-vault text-teal-600"></i>
+                        <span>حركة الخزينة وسندات الصرف/القبض</span>
+                    </a>
+                    <a href="{{ route('finance.expenses') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.expenses*') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-file-invoice-dollar text-teal-600"></i>
+                        <span>المصروفات العمومية والتشغيلية</span>
+                    </a>
+                    <a href="{{ route('finance.journal') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.journal*') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-book-journal-whills text-teal-600"></i>
+                        <span>دفتر اليومية العامة والقيود المزدوجة</span>
+                    </a>
+                    <a href="{{ route('finance.analysis.october') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.analysis*') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-table-list text-teal-600"></i>
+                        <span>التحليل المالي الشهري (أكتوبر)</span>
                     </a>
                     <a href="{{ route('finance.pricing') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('finance.pricing*') ? 'bg-teal-50 text-teal-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
                         <i class="fa-solid fa-tags text-teal-600"></i>

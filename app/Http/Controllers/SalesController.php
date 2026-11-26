@@ -4,12 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\BillOfMaterial;
 use App\Models\Customer;
+use App\Models\FinancialTransaction;
 use App\Models\Product;
 use App\Models\RawMaterial;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderItem;
-use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +20,7 @@ class SalesController extends Controller
     public function customers(): View
     {
         $customers = Customer::withCount(['salesOrders', 'products'])->latest()->get();
+
         return view('sales.customers.index', compact('customers'));
     }
 
@@ -49,10 +49,10 @@ class SalesController extends Controller
         $logoPath = null;
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
-            $filename = 'cust_' . time() . '.' . $file->getClientOriginalExtension();
+            $filename = 'cust_'.time().'.'.$file->getClientOriginalExtension();
             $file->move(public_path('uploads/customers'), $filename);
-            $logoPath = 'uploads/customers/' . $filename;
-        } elseif (!empty($validated['logo_url'])) {
+            $logoPath = 'uploads/customers/'.$filename;
+        } elseif (! empty($validated['logo_url'])) {
             $logoPath = $validated['logo_url'];
         }
 
@@ -79,6 +79,7 @@ class SalesController extends Controller
     {
         $customer->load(['products.boms.rawMaterial', 'salesOrders.items.product']);
         $rawMaterials = RawMaterial::where('status', true)->get();
+
         return view('sales.customers.show', compact('customer', 'rawMaterials'));
     }
 
@@ -91,7 +92,7 @@ class SalesController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:customers,code,' . $customer->id,
+            'code' => 'required|string|max:50|unique:customers,code,'.$customer->id,
             'contact_person' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
@@ -107,10 +108,10 @@ class SalesController extends Controller
 
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
-            $filename = 'cust_' . time() . '.' . $file->getClientOriginalExtension();
+            $filename = 'cust_'.time().'.'.$file->getClientOriginalExtension();
             $file->move(public_path('uploads/customers'), $filename);
-            $customer->logo = 'uploads/customers/' . $filename;
-        } elseif (!empty($validated['logo_url'])) {
+            $customer->logo = 'uploads/customers/'.$filename;
+        } elseif (! empty($validated['logo_url'])) {
             $customer->logo = $validated['logo_url'];
         }
 
@@ -138,6 +139,7 @@ class SalesController extends Controller
         }
 
         $customer->delete();
+
         return redirect()->route('sales.customers')->with('success', 'تم حذف العميل بنجاح.');
     }
 
@@ -159,7 +161,7 @@ class SalesController extends Controller
         $totalCost = 0;
         foreach ($validated['materials'] as $mat) {
             $rm = RawMaterial::find($mat['id']);
-            $totalCost += ($rm->unit_cost * (float)$mat['qty']);
+            $totalCost += ($rm->unit_cost * (float) $mat['qty']);
         }
 
         $product = Product::create([
@@ -184,7 +186,7 @@ class SalesController extends Controller
                 'quantity_per_unit' => $mat['qty'],
                 'waste_percentage' => 0,
                 'unit_cost_snapshot' => $rm->unit_cost,
-                'total_cost_per_unit' => $rm->unit_cost * (float)$mat['qty'],
+                'total_cost_per_unit' => $rm->unit_cost * (float) $mat['qty'],
             ]);
         }
 
@@ -196,6 +198,7 @@ class SalesController extends Controller
     {
         $orders = SalesOrder::with(['customer', 'items.product', 'salesRep'])->latest()->paginate(15);
         $customers = Customer::where('status', true)->get();
+
         return view('sales.orders.index', compact('orders', 'customers'));
     }
 
@@ -252,7 +255,7 @@ class SalesController extends Controller
         $totalCost = 0;
         $hasLossAlarm = false;
 
-        $orderNumber = 'SO-' . date('Y') . '-' . str_pad((SalesOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+        $orderNumber = 'SO-'.date('Y').'-'.str_pad((SalesOrder::count() + 1), 3, '0', STR_PAD_LEFT);
 
         $order = SalesOrder::create([
             'order_number' => $orderNumber,
@@ -274,9 +277,9 @@ class SalesController extends Controller
 
         foreach ($validated['items'] as $item) {
             $product = Product::findOrFail($item['product_id']);
-            $qty = (float)$item['quantity'];
-            $price = (float)$item['unit_price'];
-            $cost = (float)$product->cost_price;
+            $qty = (float) $item['quantity'];
+            $price = (float) $item['unit_price'];
+            $cost = (float) $product->cost_price;
 
             $itemSub = $qty * $price;
             $itemCost = $qty * $cost;
@@ -315,7 +318,29 @@ class SalesController extends Controller
             'has_loss_alarm' => $hasLossAlarm,
         ]);
 
-        $msg = 'تم تسجيل طلب المبيعات وإحالته فوراً إلى إدارة التشغيل لتحديد مدة الإنتاج وفحص الخامات.';
+        // Auto-post double-entry Sales Invoice into Financial Ledger
+        $customer = Customer::find($order->customer_id);
+        $txnNumber = 'INV-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        FinancialTransaction::create([
+            'transaction_number' => $txnNumber,
+            'type' => 'sales_invoice',
+            'category' => 'إيرادات مبيعات',
+            'amount' => $totalAmount,
+            'net_amount' => $subtotal,
+            'tax_vat_amount' => $tax,
+            'tax_withholding_amount' => round($subtotal * 0.01, 2),
+            'transaction_date' => $order->order_date,
+            'payment_method' => 'آجل',
+            'customer_id' => $order->customer_id,
+            'sales_order_id' => $order->id,
+            'debit_account' => 'حـ/ العملاء - '.($customer?->name ?? 'عميل'),
+            'credit_account' => 'حـ/ إيرادات المبيعات',
+            'description' => 'فاتورة مبيعات آلية عن طلب رقم '.$order->order_number,
+            'status' => 'posted',
+            'created_by' => Auth::id(),
+        ]);
+
+        $msg = 'تم تسجيل طلب المبيعات وإحالته فوراً إلى إدارة التشغيل وترحيل فاتورة المبيعات للحسابات.';
         if ($hasLossAlarm) {
             $msg .= ' ⚠️ تنبيه: تم تفعيل إنذار الخسارة نظراً لأن سعر بيع الكوڤير أقل من تكلفة الخامات المباشرة.';
         }
@@ -326,6 +351,7 @@ class SalesController extends Controller
     public function showOrder(SalesOrder $order): View
     {
         $order->load(['customer', 'salesRep', 'items.product', 'productionOrders', 'purchaseRequisitions']);
+
         return view('sales.orders.show', compact('order'));
     }
 

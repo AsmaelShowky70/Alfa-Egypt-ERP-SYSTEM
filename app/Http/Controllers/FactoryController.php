@@ -5,11 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Factory;
 use App\Models\FinancialTransaction;
 use App\Models\HourlyMachineReport;
-use App\Models\Machine;
 use App\Models\ProductionOrder;
 use App\Models\PurchaseOrder;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class FactoryController extends Controller
@@ -22,30 +20,30 @@ class FactoryController extends Controller
         $factoryStats = [];
         foreach ($factories as $f) {
             // Internal revenue from central warehouse purchases + 14% markup
-            $internalRevenue = (float)PurchaseOrder::where('from_factory_id', $f->id)
+            $internalRevenue = (float) PurchaseOrder::where('from_factory_id', $f->id)
                 ->where('status', 'received_in_warehouse')
                 ->sum('total_amount');
 
             // 14% markup amount earned
-            $markup14Earned = (float)PurchaseOrder::where('from_factory_id', $f->id)
+            $markup14Earned = (float) PurchaseOrder::where('from_factory_id', $f->id)
                 ->where('status', 'received_in_warehouse')
                 ->sum('internal_markup_amount');
 
             // Recorded costs
-            $costs = (float)FinancialTransaction::where('factory_id', $f->id)
+            $costs = (float) FinancialTransaction::where('factory_id', $f->id)
                 ->whereIn('type', ['variable_cost', 'fixed_cost', 'maintenance'])
                 ->sum('amount');
 
             // Hourly units produced today
-            $unitsToday = (float)HourlyMachineReport::where('factory_id', $f->id)
+            $unitsToday = (float) HourlyMachineReport::where('factory_id', $f->id)
                 ->whereDate('report_date', $today)
                 ->sum('units_produced');
 
-            $avgEff = (float)HourlyMachineReport::where('factory_id', $f->id)
+            $avgEff = (float) HourlyMachineReport::where('factory_id', $f->id)
                 ->whereDate('report_date', $today)
                 ->avg('efficiency_rate') ?? 95.0;
 
-            $downtimeToday = (int)HourlyMachineReport::where('factory_id', $f->id)
+            $downtimeToday = (int) HourlyMachineReport::where('factory_id', $f->id)
                 ->whereDate('report_date', $today)
                 ->sum('downtime_minutes');
 
@@ -71,10 +69,10 @@ class FactoryController extends Controller
     public function show(Factory $factory): View
     {
         $factory->load([
-            'machines.hourlyReports' => fn($q) => $q->latest()->take(10),
+            'machines.hourlyReports' => fn ($q) => $q->latest()->take(10),
             'productionOrders.product',
-            'hourlyReports' => fn($q) => $q->latest()->take(20),
-            'supervisor'
+            'hourlyReports' => fn ($q) => $q->latest()->take(20),
+            'supervisor',
         ]);
 
         $today = Carbon::today()->toDateString();

@@ -53,7 +53,7 @@ class DashboardController extends Controller
             $totalSalesRevenue = FinancialTransaction::where('type', 'customer_payment')->sum('amount');
             $totalExpenses = FinancialTransaction::whereIn('type', ['fixed_cost', 'variable_cost', 'supplier_payment'])->sum('amount');
             $totalFactoryMarkup14 = FinancialTransaction::where('type', 'factory_internal_14_markup')->sum('amount');
-            
+
             $warehouseRawValue = RawMaterial::sum(\DB::raw('current_stock * unit_cost'));
             $warehouseFinishedValue = Product::sum(\DB::raw('current_stock * cost_price'));
             $totalWarehouseValue = $warehouseRawValue + $warehouseFinishedValue;
@@ -75,9 +75,9 @@ class DashboardController extends Controller
                     'name' => $f->name,
                     'code' => $f->code,
                     'type' => $f->type,
-                    'revenue' => (float)$rev,
-                    'cost' => (float)$cost,
-                    'profit' => (float)($rev - $cost),
+                    'revenue' => (float) $rev,
+                    'cost' => (float) $cost,
+                    'profit' => (float) ($rev - $cost),
                 ];
             }
 
@@ -179,9 +179,9 @@ class DashboardController extends Controller
             $finishedGoodsCount = Product::count();
             $sparePartsCount = RawMaterial::where('category', 'spare_part')->count();
 
-            $rawMaterialsValue = (float)RawMaterial::where('category', '!=', 'spare_part')->get()->sum(fn($r) => (float)$r->current_stock * (float)$r->unit_cost);
-            $finishedGoodsValue = (float)Product::get()->sum(fn($p) => (float)$p->current_stock * (float)$p->cost_price);
-            $sparePartsValue = (float)RawMaterial::where('category', 'spare_part')->get()->sum(fn($r) => (float)$r->current_stock * (float)$r->unit_cost);
+            $rawMaterialsValue = (float) RawMaterial::where('category', '!=', 'spare_part')->get()->sum(fn ($r) => (float) $r->current_stock * (float) $r->unit_cost);
+            $finishedGoodsValue = (float) Product::get()->sum(fn ($p) => (float) $p->current_stock * (float) $p->cost_price);
+            $sparePartsValue = (float) RawMaterial::where('category', 'spare_part')->get()->sum(fn ($r) => (float) $r->current_stock * (float) $r->unit_cost);
 
             $lowStockMaterials = RawMaterial::whereColumn('current_stock', '<=', 'reorder_level')
                 ->with('supplier')
@@ -286,7 +286,7 @@ class DashboardController extends Controller
             $maintenanceDueMachines = $machines->where('status', 'maintenance')->count();
 
             $spareParts = RawMaterial::where('category', 'spare_part')->get();
-            $lowSpareParts = $spareParts->filter(fn($p) => $p->current_stock <= $p->reorder_level);
+            $lowSpareParts = $spareParts->filter(fn ($p) => $p->current_stock <= $p->reorder_level);
 
             $recentDowntimeReports = HourlyMachineReport::with(['machine', 'factory'])
                 ->where('downtime_minutes', '>', 0)

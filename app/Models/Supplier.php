@@ -14,6 +14,7 @@ class Supplier extends Model
         'name',
         'code',
         'category',
+        'opening_balance',
         'contact_person',
         'phone',
         'email',
@@ -27,6 +28,7 @@ class Supplier extends Model
     protected $casts = [
         'status' => 'boolean',
         'rating' => 'decimal:1',
+        'opening_balance' => 'decimal:2',
     ];
 
     public function rawMaterials(): HasMany
@@ -37,5 +39,31 @@ class Supplier extends Model
     public function purchaseOrders(): HasMany
     {
         return $this->hasMany(PurchaseOrder::class);
+    }
+
+    public function financialTransactions(): HasMany
+    {
+        return $this->hasMany(FinancialTransaction::class);
+    }
+
+    public function getTotalBilledAttribute(): float
+    {
+        return (float) $this->financialTransactions()
+            ->where('type', 'supplier_bill')
+            ->sum('amount');
+    }
+
+    public function getTotalPaidAttribute(): float
+    {
+        return (float) $this->financialTransactions()
+            ->where('type', 'supplier_payment')
+            ->sum('amount');
+    }
+
+    public function getCurrentBalanceAttribute(): float
+    {
+        // Balance = opening_balance + billed - paid
+        // Positive means Alfa Egypt owes supplier (دائن له مستحقات), Negative means advance credit paid to supplier (مدين / عربون مقدم)
+        return (float) ($this->opening_balance + $this->total_billed - $this->total_paid);
     }
 }

@@ -21,12 +21,14 @@ class Customer extends Model
         'commercial_register',
         'logo',
         'payment_terms',
+        'opening_balance',
         'notes',
         'status',
     ];
 
     protected $casts = [
         'status' => 'boolean',
+        'opening_balance' => 'decimal:2',
     ];
 
     public function salesOrders(): HasMany
@@ -39,6 +41,30 @@ class Customer extends Model
         return $this->hasMany(Product::class);
     }
 
+    public function financialTransactions(): HasMany
+    {
+        return $this->hasMany(FinancialTransaction::class);
+    }
+
+    public function getTotalInvoicedAttribute(): float
+    {
+        return (float) $this->financialTransactions()
+            ->where('type', 'sales_invoice')
+            ->sum('amount');
+    }
+
+    public function getTotalCollectedAttribute(): float
+    {
+        return (float) $this->financialTransactions()
+            ->where('type', 'customer_payment')
+            ->sum('amount');
+    }
+
+    public function getCurrentBalanceAttribute(): float
+    {
+        return (float) ($this->opening_balance + $this->total_invoiced - $this->total_collected);
+    }
+
     public function getLogoUrlAttribute(): string
     {
         if ($this->logo && (str_starts_with($this->logo, 'http://') || str_starts_with($this->logo, 'https://'))) {
@@ -47,6 +73,7 @@ class Customer extends Model
         if ($this->logo && file_exists(public_path($this->logo))) {
             return asset($this->logo);
         }
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=0f766e&color=fff&size=128';
+
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=dc2626&color=fff&size=128';
     }
 }

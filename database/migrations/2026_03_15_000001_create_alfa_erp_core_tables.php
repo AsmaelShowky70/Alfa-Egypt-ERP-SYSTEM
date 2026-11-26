@@ -132,7 +132,7 @@ return new class extends Migration
             $table->string('order_number')->unique();
             $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
             $table->foreignId('sales_rep_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('status')->default('pending_operations'); 
+            $table->string('status')->default('pending_operations');
             // pending_operations, operations_scheduled, procurement_delayed, confirmed, in_production, ready_in_warehouse, completed, cancelled
             $table->date('order_date')->default(now());
             $table->date('target_delivery_date')->nullable(); // التاريخ المطلوب من العميل
@@ -184,7 +184,7 @@ return new class extends Migration
             $table->dateTime('actual_end_date')->nullable();
             $table->decimal('estimated_hours', 8, 2)->default(0);
             $table->decimal('actual_hours', 8, 2)->default(0);
-            $table->string('status')->default('draft'); 
+            $table->string('status')->default('draft');
             // draft, waiting_materials, ready, in_progress, completed, paused, cancelled
             $table->foreignId('operations_manager_id')->nullable()->constrained('users')->nullOnDelete();
             $table->text('instructions')->nullable();
@@ -224,7 +224,7 @@ return new class extends Migration
             $table->foreignId('warehouse_manager_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('sales_order_id')->nullable()->constrained('sales_orders')->nullOnDelete();
             $table->foreignId('production_order_id')->nullable()->constrained('production_orders')->nullOnDelete();
-            $table->string('status')->default('pending_procurement'); 
+            $table->string('status')->default('pending_procurement');
             // pending_procurement, lead_time_quoted, po_issued, delivered_to_warehouse, cancelled
             $table->integer('procurement_lead_time_days')->default(0); // رد المشتريات بالمدة
             $table->date('estimated_arrival_date')->nullable();
@@ -258,7 +258,7 @@ return new class extends Migration
             $table->foreignId('from_factory_id')->nullable()->constrained('factories')->nullOnDelete();
             $table->string('destination_warehouse')->default('المخزن المركزي');
             $table->decimal('internal_markup_percentage', 5, 2)->default(14.00); // 14% تكلفة إنتاج تشغيلية
-            $table->string('status')->default('issued'); 
+            $table->string('status')->default('issued');
             // issued, confirmed, in_transit, received_in_warehouse, cancelled
             $table->date('order_date')->default(now());
             $table->date('expected_delivery_date')->nullable();
@@ -290,7 +290,7 @@ return new class extends Migration
         Schema::create('stock_movements', function (Blueprint $table) {
             $table->id();
             $table->string('voucher_number')->unique();
-            $table->string('type'); 
+            $table->string('type');
             // receipt_supplier, receipt_factory_internal, issue_production, delivery_customer, inventory_adjustment, spare_part_maintenance
             $table->string('reference_type')->nullable(); // purchase_order, production_order, sales_order, manual
             $table->unsignedBigInteger('reference_id')->nullable();
@@ -375,7 +375,7 @@ return new class extends Migration
         Schema::create('financial_transactions', function (Blueprint $table) {
             $table->id();
             $table->string('transaction_number')->unique();
-            $table->string('type'); 
+            $table->string('type');
             // sales_invoice, customer_payment, supplier_bill, supplier_payment, factory_internal_14_markup, fixed_cost, variable_cost, maintenance, salary, utility
             $table->string('category'); // إيرادات مبيعات، تكلفة خامات، تشغيل داخلي 14%، كهرباء وغاز، أجور، صيانة، مصاريف إدارية
             $table->decimal('amount', 14, 2);

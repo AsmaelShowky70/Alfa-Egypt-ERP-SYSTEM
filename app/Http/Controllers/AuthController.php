@@ -17,6 +17,7 @@ class AuthController extends Controller
             return redirect()->route('dashboard');
         }
         $users = User::where('status', true)->get();
+
         return view('auth.login', compact('users'));
     }
 
@@ -31,7 +32,8 @@ class AuthController extends Controller
             $request->session()->forget('url.intended');
             $request->session()->forget('error');
             $request->session()->regenerate();
-            return redirect()->route('dashboard')->with('success', 'مرحباً بك يا ' . Auth::user()->name . ' في نظام ألفا إيجبت ERP');
+
+            return redirect()->route('dashboard')->with('success', 'مرحباً بك يا '.Auth::user()->name.' في نظام ألفا إيجبت ERP');
         }
 
         return back()->withErrors([
@@ -42,20 +44,20 @@ class AuthController extends Controller
     public function fastLogin(Request $request, $id = null): RedirectResponse
     {
         $userId = $id ?? $request->input('user_id') ?? $request->query('user_id');
-        
-        if (!$userId) {
+
+        if (! $userId) {
             return redirect()->route('login')->with('error', 'يرجى اختيار المستخدم لتسجيل الدخول.');
         }
 
         $user = User::findOrFail($userId);
         Auth::login($user);
-        
+
         // Clear any intended URL and prior error flash from previous role
         $request->session()->forget('url.intended');
         $request->session()->forget('error');
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')->with('success', 'تم الدخول بنجاح بحساب: ' . $user->name . ' (' . $user->role_arabic_name . ')');
+        return redirect()->route('dashboard')->with('success', 'تم الدخول بنجاح بحساب: '.$user->name.' ('.$user->role_arabic_name.')');
     }
 
     public function logout(Request $request): RedirectResponse
@@ -70,6 +72,7 @@ class AuthController extends Controller
     public function profile(): View
     {
         $user = Auth::user();
+
         return view('auth.profile', compact('user'));
     }
 
@@ -87,15 +90,15 @@ class AuthController extends Controller
         $user->name = $validated['name'];
         $user->phone = $validated['phone'];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
 
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
-            $filename = 'user_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $filename = 'user_'.$user->id.'_'.time().'.'.$file->getClientOriginalExtension();
             $file->move(public_path('uploads/users'), $filename);
-            $user->avatar = 'uploads/users/' . $filename;
+            $user->avatar = 'uploads/users/'.$filename;
         }
 
         $user->save();

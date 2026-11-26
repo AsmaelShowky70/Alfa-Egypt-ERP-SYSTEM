@@ -7,7 +7,6 @@ use App\Models\FinancialTransaction;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseRequisition;
-use App\Models\PurchaseRequisitionItem;
 use App\Models\RawMaterial;
 use App\Models\SalesOrder;
 use App\Models\StockMovement;
@@ -49,6 +48,7 @@ class PurchasingController extends Controller
         $requisitions = PurchaseRequisition::with(['warehouseManager', 'salesOrder.customer', 'items.rawMaterial'])
             ->latest()
             ->paginate(15);
+
         return view('purchasing.requisitions.index', compact('requisitions'));
     }
 
@@ -60,7 +60,7 @@ class PurchasingController extends Controller
             'productionOrder',
             'items.rawMaterial',
             'purchaseOrders.supplier',
-            'purchaseOrders.fromFactory'
+            'purchaseOrders.fromFactory',
         ]);
         $suppliers = Supplier::where('status', true)->get();
         $factories = Factory::all();
@@ -79,7 +79,7 @@ class PurchasingController extends Controller
             'procurement_reply_notes' => 'required|string',
         ]);
 
-        $days = (int)$validated['procurement_lead_time_days'];
+        $days = (int) $validated['procurement_lead_time_days'];
 
         $purchaseRequisition->update([
             'procurement_lead_time_days' => $days,
@@ -111,6 +111,7 @@ class PurchasingController extends Controller
         $orders = PurchaseOrder::with(['supplier', 'fromFactory', 'purchasingManager', 'items'])
             ->latest()
             ->paginate(15);
+
         return view('purchasing.orders.index', compact('orders'));
     }
 
@@ -144,12 +145,12 @@ class PurchasingController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
         ]);
 
-        $isInternal = (bool)$validated['is_internal_factory'];
+        $isInternal = (bool) $validated['is_internal_factory'];
         $markupPercent = $isInternal ? 14.00 : 0.00;
 
         $subtotal = 0;
         foreach ($validated['items'] as $item) {
-            $subtotal += ((float)$item['quantity'] * (float)$item['unit_price']);
+            $subtotal += ((float) $item['quantity'] * (float) $item['unit_price']);
         }
 
         $markupAmount = $subtotal * ($markupPercent / 100);
@@ -157,7 +158,7 @@ class PurchasingController extends Controller
         $totalAmount = $subtotal + $markupAmount + $tax;
 
         $prefix = $isInternal ? 'PO-INT-' : 'PO-EXT-';
-        $poNumber = $prefix . date('Y') . '-' . str_pad((PurchaseOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+        $poNumber = $prefix.date('Y').'-'.str_pad((PurchaseOrder::count() + 1), 3, '0', STR_PAD_LEFT);
 
         DB::beginTransaction();
         try {
@@ -187,7 +188,7 @@ class PurchasingController extends Controller
                     'item_name' => $item['item_name'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['unit_price'],
-                    'subtotal' => (float)$item['quantity'] * (float)$item['unit_price'],
+                    'subtotal' => (float) $item['quantity'] * (float) $item['unit_price'],
                     'received_quantity' => 0,
                 ]);
             }
@@ -196,23 +197,66 @@ class PurchasingController extends Controller
                 PurchaseRequisition::where('id', $validated['purchase_requisition_id'])->update(['status' => 'po_issued']);
             }
 
+            // Auto-post double-entry into Financial Ledger
+            if (! $isInternal && $po->supplier_id) {
+                $sup = Supplier::find($po->supplier_id);
+                $finTxnNumber = 'BILL-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+                FinancialTransaction::create([
+                    'transaction_number' => $finTxnNumber,
+                    'type' => 'supplier_bill',
+                    'category' => 'مشتريات خامات ومستلزمات',
+                    'amount' => $totalAmount,
+                    'net_amount' => $subtotal,
+                    'tax_vat_amount' => $tax,
+                    'transaction_date' => $po->order_date,
+                    'payment_method' => 'آجل',
+                    'supplier_id' => $po->supplier_id,
+                    'purchase_order_id' => $po->id,
+                    'debit_account' => 'حـ/ مشتريات خامات ومستلزمات',
+                    'credit_account' => 'حـ/ الموردين - '.($sup?->name ?? 'مورد'),
+                    'description' => 'فاتورة مشتريات آلية عن أمر شراء رقم '.$po->po_number,
+                    'status' => 'posted',
+                    'created_by' => Auth::id(),
+                ]);
+            } elseif ($isInternal && $markupAmount > 0) {
+                $factory = Factory::find($po->from_factory_id);
+                $finTxnNumber = 'TR-14-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+                FinancialTransaction::create([
+                    'transaction_number' => $finTxnNumber,
+                    'type' => 'factory_internal_14_markup',
+                    'category' => 'تسوية أرباح تشغيل داخلي 14%',
+                    'amount' => $markupAmount,
+                    'transaction_date' => $po->order_date,
+                    'payment_method' => 'تسوية داخلية',
+                    'factory_id' => $po->from_factory_id,
+                    'purchase_order_id' => $po->id,
+                    'debit_account' => 'حـ/ تكاليف تشغيل الكوڤير',
+                    'credit_account' => 'حـ/ أرباح تشغيل - '.($factory?->name ?? 'مصنع'),
+                    'description' => 'تسوية الـ 14% المحملة كربح تشغيلي للمصنع الداخلي عن أمر توريد '.$po->po_number,
+                    'status' => 'posted',
+                    'created_by' => Auth::id(),
+                ]);
+            }
+
             DB::commit();
 
-            $msg = 'تم إصدار أمر الشراء رقم ' . $poNumber . ' بنجاح.';
+            $msg = 'تم إصدار أمر الشراء رقم '.$poNumber.' بنجاح.';
             if ($isInternal) {
-                $msg .= ' تم تحميل 14% تكلفة تشغيلية (' . number_format($markupAmount, 2) . ' ج.م) لحساب أرباح المصنع الداخلي.';
+                $msg .= ' تم تحميل 14% تكلفة تشغيلية ('.number_format($markupAmount, 2).' ج.م) لحساب أرباح المصنع الداخلي.';
             }
 
             return redirect()->route('purchasing.orders.show', $po->id)->with('success', $msg);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'حدث خطأ أثناء إصدار أمر الشراء: ' . $e->getMessage());
+
+            return back()->with('error', 'حدث خطأ أثناء إصدار أمر الشراء: '.$e->getMessage());
         }
     }
 
     public function showPurchaseOrder(PurchaseOrder $purchaseOrder): View
     {
         $purchaseOrder->load(['supplier', 'fromFactory', 'purchasingManager', 'items.rawMaterial', 'purchaseRequisition']);
+
         return view('purchasing.orders.show', compact('purchaseOrder'));
     }
 
@@ -225,7 +269,7 @@ class PurchasingController extends Controller
 
         DB::beginTransaction();
         try {
-            $voucherNumber = 'VOUCH-REC-' . date('Ymd') . '-' . str_pad((StockMovement::count() + 1), 3, '0', STR_PAD_LEFT);
+            $voucherNumber = 'VOUCH-REC-'.date('Ymd').'-'.str_pad((StockMovement::count() + 1), 3, '0', STR_PAD_LEFT);
             $type = $purchaseOrder->is_internal_factory ? 'receipt_factory_internal' : 'receipt_supplier';
 
             $voucher = StockMovement::create([
@@ -238,7 +282,7 @@ class PurchasingController extends Controller
                 'total_value' => $purchaseOrder->total_amount,
                 'received_or_delivered_by' => $purchaseOrder->is_internal_factory ? ($purchaseOrder->fromFactory->supervisor_name ?? 'مشرف المصنع الداخلي') : ($purchaseOrder->supplier->name ?? 'مندوب المورد'),
                 'is_archived' => false,
-                'notes' => 'استلام بموجب أمر الشراء رقم ' . $purchaseOrder->po_number,
+                'notes' => 'استلام بموجب أمر الشراء رقم '.$purchaseOrder->po_number,
             ]);
 
             foreach ($purchaseOrder->items as $item) {
@@ -246,7 +290,7 @@ class PurchasingController extends Controller
                 $item->save();
 
                 if ($item->rawMaterial) {
-                    $item->rawMaterial->current_stock += (float)$item->quantity;
+                    $item->rawMaterial->current_stock += (float) $item->quantity;
                     $item->rawMaterial->save();
                 }
 
@@ -270,7 +314,7 @@ class PurchasingController extends Controller
             // If internal factory, record the 14% markup in Financial Transactions!
             if ($purchaseOrder->is_internal_factory && $purchaseOrder->internal_markup_amount > 0) {
                 FinancialTransaction::create([
-                    'transaction_number' => 'FT-INT-' . time(),
+                    'transaction_number' => 'FT-INT-'.time(),
                     'type' => 'factory_internal_14_markup',
                     'category' => 'تكاليف تشغيل 14%',
                     'amount' => $purchaseOrder->internal_markup_amount,
@@ -278,7 +322,7 @@ class PurchasingController extends Controller
                     'payment_method' => 'قيد محاسبي داخلي',
                     'purchase_order_id' => $purchaseOrder->id,
                     'factory_id' => $purchaseOrder->from_factory_id,
-                    'description' => 'قيد هامش ربح تشغيلي 14% لصالح ' . ($purchaseOrder->fromFactory->name ?? 'المصنع') . ' عن أمر التوريد ' . $purchaseOrder->po_number,
+                    'description' => 'قيد هامش ربح تشغيلي 14% لصالح '.($purchaseOrder->fromFactory->name ?? 'المصنع').' عن أمر التوريد '.$purchaseOrder->po_number,
                     'created_by' => Auth::id(),
                 ]);
             }
@@ -286,10 +330,11 @@ class PurchasingController extends Controller
             DB::commit();
 
             return redirect()->route('warehouse.vouchers.show', $voucher->id)
-                ->with('success', 'تم استلام البضاعة في المخزن المركزي بنجاح وإصدار إذن الاستلام رقم ' . $voucherNumber);
+                ->with('success', 'تم استلام البضاعة في المخزن المركزي بنجاح وإصدار إذن الاستلام رقم '.$voucherNumber);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'حدث خطأ أثناء الاستلام: ' . $e->getMessage());
+
+            return back()->with('error', 'حدث خطأ أثناء الاستلام: '.$e->getMessage());
         }
     }
 
@@ -297,6 +342,7 @@ class PurchasingController extends Controller
     public function suppliers(): View
     {
         $suppliers = Supplier::withCount('purchaseOrders')->get();
+
         return view('purchasing.suppliers.index', compact('suppliers'));
     }
 
@@ -315,6 +361,7 @@ class PurchasingController extends Controller
         ]);
 
         Supplier::create($validated);
+
         return back()->with('success', 'تم إضافة المورد الجديد بنجاح.');
     }
 }

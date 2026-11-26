@@ -125,6 +125,31 @@ Route::middleware('auth')->group(function () {
         Route::get('/transactions/create', [FinanceController::class, 'createTransaction'])->name('transactions.create');
         Route::post('/transactions', [FinanceController::class, 'storeTransaction'])->name('transactions.store');
 
+        // Customer Accounts & Receivables (شجرة ومستحقات العملاء)
+        Route::get('/customers', [FinanceController::class, 'customers'])->name('customers');
+        Route::get('/customers/{customer}/statement', [FinanceController::class, 'customerStatement'])->name('customers.statement');
+        Route::post('/customers/{customer}/payment', [FinanceController::class, 'storeCustomerPayment'])->name('customers.payment');
+
+        // Supplier Accounts & Payables & Advances (حسابات الموردين والعربونات)
+        Route::get('/suppliers', [FinanceController::class, 'suppliers'])->name('suppliers');
+        Route::get('/suppliers/{supplier}/statement', [FinanceController::class, 'supplierStatement'])->name('suppliers.statement');
+        Route::post('/suppliers/{supplier}/payment', [FinanceController::class, 'storeSupplierPayment'])->name('suppliers.payment');
+
+        // Treasury & Cash Flow Tracker (الخزينة والسيولة النقدية)
+        Route::get('/treasury', [FinanceController::class, 'treasury'])->name('treasury');
+        Route::post('/treasury/voucher', [FinanceController::class, 'storeTreasuryVoucher'])->name('treasury.voucher');
+
+        // General & Operating Expenses (المصروفات العمومية والتشغيلية)
+        Route::get('/expenses', [FinanceController::class, 'expenses'])->name('expenses');
+        Route::post('/expenses', [FinanceController::class, 'storeExpense'])->name('expenses.store');
+
+        // General Journal Double-Entry Ledger (دفتر اليومية العامة والقيود المزدوجة)
+        Route::get('/journal', [FinanceController::class, 'journal'])->name('journal');
+        Route::post('/journal', [FinanceController::class, 'storeManualJournal'])->name('journal.store');
+
+        // Monthly Financial Analysis (التحليل المالي الشهري لشهر أكتوبر وسبتمبر)
+        Route::get('/analysis/october', [FinanceController::class, 'octoberAnalysis'])->name('analysis.october');
+
         Route::get('/pricing', [FinanceController::class, 'pricing'])->name('pricing');
         Route::post('/pricing/{product}', [FinanceController::class, 'updatePrice'])->name('pricing.update');
         Route::post('/pricing/{product}/recalculate', [FinanceController::class, 'recalculateProductCost'])->name('pricing.recalculate');

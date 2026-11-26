@@ -13,6 +13,7 @@ class UserController extends Controller
     public function index(): View
     {
         $users = User::latest()->get();
+
         return view('users.index', compact('users'));
     }
 
@@ -37,9 +38,9 @@ class UserController extends Controller
         $avatarPath = null;
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
-            $filename = 'user_' . time() . '.' . $file->getClientOriginalExtension();
+            $filename = 'user_'.time().'.'.$file->getClientOriginalExtension();
             $file->move(public_path('uploads/users'), $filename);
-            $avatarPath = 'uploads/users/' . $filename;
+            $avatarPath = 'uploads/users/'.$filename;
         }
 
         User::create([
@@ -66,7 +67,7 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
             'role' => 'required|in:owner,gm,sales,operations,warehouse,purchasing,finance,maintenance',
             'job_title' => 'required|string|max:255',
             'department' => 'required|string|max:255',
@@ -84,15 +85,15 @@ class UserController extends Controller
         $user->phone = $validated['phone'];
         $user->status = $validated['status'];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
         }
 
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
-            $filename = 'user_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $filename = 'user_'.$user->id.'_'.time().'.'.$file->getClientOriginalExtension();
             $file->move(public_path('uploads/users'), $filename);
-            $user->avatar = 'uploads/users/' . $filename;
+            $user->avatar = 'uploads/users/'.$filename;
         }
 
         $user->save();
@@ -110,6 +111,6 @@ class UserController extends Controller
             'password' => Hash::make($validated['new_password']),
         ]);
 
-        return back()->with('success', 'تمت إعادة تعيين كلمة المرور للمستخدم: ' . $user->name . ' بنجاح.');
+        return back()->with('success', 'تمت إعادة تعيين كلمة المرور للمستخدم: '.$user->name.' بنجاح.');
     }
 }
