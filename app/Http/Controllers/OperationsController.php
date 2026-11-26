@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OperationsController extends Controller
 {
@@ -290,11 +291,63 @@ class OperationsController extends Controller
     }
 
     // ================= HOURLY MACHINE REPORTS =================
-    public function hourlyReports(Request $request): View
+    public function hourlyReports(Request $request): View|StreamedResponse
     {
+        $period = $request->get('period');
         $rawDate = $request->get('date');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
         $machineId = $request->get('machine_id');
         $shift = $request->get('shift');
+        $productId = $request->get('product_id');
+        $downtimeFilter = $request->get('downtime_filter', 'all'); // all, zero (بلانكة/بدون أعطال), has_downtime (بها أعطال فقط)
+        $effFilter = $request->get('eff_filter', 'all'); // all, high (>=90), medium (75-89), low (<75)
+        $operatorSearch = $request->get('operator');
+        $viewMode = $request->get('view', 'grid'); // grid (Excel-like table), cards, analytics
+
+        // Handle Quick Period Shortcuts
+        $today = Carbon::today()->toDateString();
+        if ($period === 'today') {
+            $dateFrom = $today;
+            $dateTo = $today;
+        } elseif ($period === 'yesterday') {
+            $yesterday = Carbon::yesterday()->toDateString();
+            $dateFrom = $yesterday;
+            $dateTo = $yesterday;
+        } elseif ($period === 'this_week') {
+            $dateFrom = Carbon::now()->startOfWeek()->toDateString();
+            $dateTo = Carbon::now()->endOfWeek()->toDateString();
+        } elseif ($period === 'this_month') {
+            $dateFrom = Carbon::now()->startOfMonth()->toDateString();
+            $dateTo = Carbon::now()->endOfMonth()->toDateString();
+        } elseif ($period === 'last_month') {
+            $dateFrom = Carbon::now()->subMonth()->startOfMonth()->toDateString();
+            $dateTo = Carbon::now()->subMonth()->endOfMonth()->toDateString();
+        } elseif ($period === 'all') {
+            $dateFrom = null;
+            $dateTo = null;
+        } elseif ($request->filled('date')) {
+            // Backward compatibility for single date
+            if ($rawDate === 'all') {
+                $dateFrom = null;
+                $dateTo = null;
+            } else {
+                $dateFrom = $rawDate;
+                $dateTo = $rawDate;
+            }
+        } elseif (! $request->has('date_from') && ! $request->has('date_to') && ! $request->has('period')) {
+            // First time load: Default to today if records exist, otherwise this month
+            $hasToday = HourlyMachineReport::whereDate('report_date', $today)->exists();
+            if ($hasToday) {
+                $dateFrom = $today;
+                $dateTo = $today;
+                $period = 'today';
+            } else {
+                $dateFrom = Carbon::now()->startOfMonth()->toDateString();
+                $dateTo = Carbon::now()->endOfMonth()->toDateString();
+                $period = 'this_month';
+            }
+        }
 
         $query = HourlyMachineReport::with([
             'machine.factory',
@@ -304,26 +357,12 @@ class OperationsController extends Controller
             'productionOrder.salesOrder.customer',
         ]);
 
-        // Determine selected date:
-        // If explicit date is given (and not empty or 'all'):
-        if ($request->has('date') && $rawDate !== 'all' && ! empty($rawDate)) {
-            $selectedDate = $rawDate;
-            $query->whereDate('report_date', $selectedDate);
-        } elseif ($request->has('date') && ($rawDate === 'all' || empty($rawDate))) {
-            // User requested to see all dates!
-            $selectedDate = '';
-        } else {
-            // First time loading page (no ?date in query):
-            $today = Carbon::today()->toDateString();
-            $todayExists = HourlyMachineReport::whereDate('report_date', $today)->exists();
-            if ($todayExists) {
-                $selectedDate = $today;
-                $query->whereDate('report_date', $today);
-            } else {
-                $latestDate = HourlyMachineReport::max('report_date');
-                $selectedDate = $latestDate ? Carbon::parse($latestDate)->toDateString() : $today;
-                $query->whereDate('report_date', $selectedDate);
-            }
+        if (! empty($dateFrom) && ! empty($dateTo)) {
+            $query->whereBetween('report_date', [$dateFrom, $dateTo]);
+        } elseif (! empty($dateFrom)) {
+            $query->whereDate('report_date', '>=', $dateFrom);
+        } elseif (! empty($dateTo)) {
+            $query->whereDate('report_date', '<=', $dateTo);
         }
 
         if ($machineId) {
@@ -334,14 +373,120 @@ class OperationsController extends Controller
             $query->where('shift', $shift);
         }
 
-        // Chronological order for the day: date descending, shift ascending, then hour slot ascending
+        if ($productId) {
+            $query->where('product_id', $productId);
+        }
+
+        // Downtime Filter: 'zero' (بلانكة - خالية من الأعطال) vs 'has_downtime' (ساعات بها توقف)
+        if ($downtimeFilter === 'zero' || $downtimeFilter === 'blank') {
+            $query->where(function ($q) {
+                $q->whereNull('downtime_minutes')->orWhere('downtime_minutes', 0);
+            });
+        } elseif ($downtimeFilter === 'has_downtime') {
+            $query->where('downtime_minutes', '>', 0);
+        }
+
+        // Efficiency Filter
+        if ($effFilter === 'high') {
+            $query->where('efficiency_rate', '>=', 90);
+        } elseif ($effFilter === 'medium') {
+            $query->whereBetween('efficiency_rate', [75, 89.99]);
+        } elseif ($effFilter === 'low') {
+            $query->where('efficiency_rate', '<', 75);
+        }
+
+        if (! empty($operatorSearch)) {
+            $query->where('operator_name', 'like', '%'.$operatorSearch.'%');
+        }
+
+        // Excel / CSV Export
+        if ($request->get('export') === 'csv') {
+            $exportRecords = (clone $query)->orderBy('report_date', 'desc')->orderBy('shift', 'asc')->orderBy('hour_slot', 'asc')->get();
+            $fileName = 'تقارير_تشغيل_الماكينات_كل_ساعة_'.($dateFrom ?: 'كل_الفترات').'.csv';
+
+            return response()->streamDownload(function () use ($exportRecords) {
+                $file = fopen('php://output', 'w');
+                // UTF-8 BOM for Microsoft Excel Arabic support
+                fwrite($file, "\xEF\xBB\xBF");
+
+                fputcsv($file, [
+                    'م',
+                    'التاريخ',
+                    'الوردية',
+                    'الفترة الزمنية (الساعة)',
+                    'المصنع',
+                    'الماكينة',
+                    'كود الماكينة',
+                    'الصنف المشغل',
+                    'كود الصنف',
+                    'الإنتاج الفعلي (قطعة)',
+                    'سرعة السير (قطعة/دقيقة)',
+                    'كفاءة التشغيل OEE (%)',
+                    'الهادر / التالف (قطعة)',
+                    'دقائق التوقف (دقيقة)',
+                    'سبب التوقف',
+                    'الإجراء المتخذ',
+                    'اسم المشغل',
+                    'التوصية التشغيلية الذكية لاتخاذ القرار',
+                ]);
+
+                foreach ($exportRecords as $index => $r) {
+                    $prod = $r->active_product;
+                    fputcsv($file, [
+                        $index + 1,
+                        $r->report_date ? $r->report_date->format('Y-m-d') : '',
+                        $r->shift_name,
+                        $r->hour_slot,
+                        $r->factory?->name ?? '',
+                        $r->machine?->name ?? '',
+                        $r->machine?->code ?? '',
+                        $prod?->name ?? 'غير محدد',
+                        $prod?->code ?? '',
+                        (float) $r->units_produced,
+                        (float) $r->belt_speed_m_min,
+                        (float) $r->efficiency_rate.'%',
+                        (float) $r->waste_units,
+                        (int) $r->downtime_minutes,
+                        $r->downtime_reason ?? 'لا توجد توقفات (تشغيل منتظم)',
+                        $r->actions_taken ?? '',
+                        $r->operator_name,
+                        $r->ai_smart_recommendation ?? '',
+                    ]);
+                }
+                fclose($file);
+            }, $fileName, [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+            ]);
+        }
+
+        // Clone query for KPI aggregates before pagination
+        $summaryQuery = clone $query;
+        $totalProduced = (float) $summaryQuery->sum('units_produced');
+        $avgEfficiency = (float) ($summaryQuery->avg('efficiency_rate') ?? 0);
+        $totalDowntime = (int) $summaryQuery->sum('downtime_minutes');
+        $totalWaste = (float) $summaryQuery->sum('waste_units');
+        $totalRecords = (int) $summaryQuery->count();
+        $zeroDowntimeCount = (int) (clone $summaryQuery)->where(function ($q) {
+            $q->whereNull('downtime_minutes')->orWhere('downtime_minutes', 0);
+        })->count();
+        $zeroDowntimeRate = $totalRecords > 0 ? round(($zeroDowntimeCount / $totalRecords) * 100, 1) : 100.0;
+
+        // Shift breakdown for current filter
+        $shift1Output = (float) (clone $summaryQuery)->where('shift', '1')->sum('units_produced');
+        $shift2Output = (float) (clone $summaryQuery)->where('shift', '2')->sum('units_produced');
+        $shift3Output = (float) (clone $summaryQuery)->where('shift', '3')->sum('units_produced');
+        $shiftCustomOutput = (float) (clone $summaryQuery)->whereNotIn('shift', ['1', '2', '3'])->sum('units_produced');
+
         $reports = $query->orderBy('report_date', 'desc')
             ->orderBy('shift', 'asc')
             ->orderBy('hour_slot', 'asc')
-            ->paginate(30)
+            ->paginate(50)
             ->withQueryString();
 
-        $machines = Machine::where('status', '!=', 'scrapped')->get();
+        $machines = Machine::where('status', '!=', 'scrapped')->with('factory')->get();
         $factories = Factory::all();
         $products = Product::with('boms.rawMaterial')->get();
         $activeProductionOrders = ProductionOrder::with(['product.boms.rawMaterial', 'salesOrder.customer'])
@@ -349,35 +494,78 @@ class OperationsController extends Controller
             ->latest()
             ->get();
 
-        // Summary calculations
-        $summaryQuery = HourlyMachineReport::query();
-        if ($selectedDate) {
-            $summaryQuery->whereDate('report_date', $selectedDate);
-        }
-        if ($machineId) {
-            $summaryQuery->where('machine_id', $machineId);
-        }
-        if ($shift && $shift !== 'all') {
-            $summaryQuery->where('shift', $shift);
+        // ================= COMPREHENSIVE MACHINE ANALYTICS =================
+        // Calculates daily, monthly, lifetime, downtime, and idle days for every machine
+        $now = Carbon::now();
+        $monthStart = $now->copy()->startOfMonth()->toDateString();
+        $monthEnd = $now->copy()->endOfMonth()->toDateString();
+        $daysElapsedInMonth = $now->day;
+
+        $machineAnalytics = [];
+        foreach ($machines as $m) {
+            $mReportsAll = HourlyMachineReport::where('machine_id', $m->id);
+            $totalOutputAllTime = (float) (clone $mReportsAll)->sum('units_produced');
+
+            $mReportsMonth = HourlyMachineReport::where('machine_id', $m->id)
+                ->whereBetween('report_date', [$monthStart, $monthEnd]);
+
+            $monthOutput = (float) (clone $mReportsMonth)->sum('units_produced');
+            $monthHours = (int) (clone $mReportsMonth)->count();
+            $monthDowntime = (int) (clone $mReportsMonth)->sum('downtime_minutes');
+            $monthWaste = (float) (clone $mReportsMonth)->sum('waste_units');
+            $monthAvgOEE = (float) ((clone $mReportsMonth)->avg('efficiency_rate') ?? 0);
+
+            $monthZeroDowntimeCount = (int) (clone $mReportsMonth)->where(function ($q) {
+                $q->whereNull('downtime_minutes')->orWhere('downtime_minutes', 0);
+            })->count();
+            $zeroBreakdownRate = $monthHours > 0 ? round(($monthZeroDowntimeCount / $monthHours) * 100, 1) : 100.0;
+
+            // Today's output
+            $todayOutput = (float) HourlyMachineReport::where('machine_id', $m->id)
+                ->whereDate('report_date', $today)
+                ->sum('units_produced');
+
+            // Period output (according to active date filter)
+            $mReportsPeriod = HourlyMachineReport::where('machine_id', $m->id);
+            if (! empty($dateFrom) && ! empty($dateTo)) {
+                $mReportsPeriod->whereBetween('report_date', [$dateFrom, $dateTo]);
+            } elseif (! empty($dateFrom)) {
+                $mReportsPeriod->whereDate('report_date', '>=', $dateFrom);
+            } elseif (! empty($dateTo)) {
+                $mReportsPeriod->whereDate('report_date', '<=', $dateTo);
+            }
+            $periodOutput = (float) $mReportsPeriod->sum('units_produced');
+
+            // Inactivity and Idle Days tracking
+            $lastReport = HourlyMachineReport::where('machine_id', $m->id)->latest('report_date')->first();
+            $lastActiveDate = $lastReport?->report_date ? Carbon::parse($lastReport->report_date) : null;
+            $daysSinceActive = $lastActiveDate ? (int) $lastActiveDate->diffInDays($now) : null;
+            $activeDaysThisMonth = (int) HourlyMachineReport::where('machine_id', $m->id)
+                ->whereBetween('report_date', [$monthStart, $monthEnd])
+                ->distinct('report_date')
+                ->count('report_date');
+            $idleDaysThisMonth = max(0, $daysElapsedInMonth - $activeDaysThisMonth);
+
+            $machineAnalytics[] = (object) [
+                'machine' => $m,
+                'today_output' => $todayOutput,
+                'period_output' => $periodOutput,
+                'month_output' => $monthOutput,
+                'total_output' => $totalOutputAllTime,
+                'month_hours' => $monthHours,
+                'month_downtime' => $monthDowntime,
+                'month_waste' => $monthWaste,
+                'month_avg_oee' => $monthAvgOEE,
+                'zero_breakdown_rate' => $zeroBreakdownRate,
+                'last_active_date' => $lastActiveDate ? $lastActiveDate->format('Y-m-d') : null,
+                'days_since_active' => $daysSinceActive,
+                'active_days_this_month' => $activeDaysThisMonth,
+                'idle_days_this_month' => $idleDaysThisMonth,
+                'is_alarm' => ($daysSinceActive !== null && $daysSinceActive >= 2) || ($lastActiveDate === null),
+            ];
         }
 
-        $totalProduced = (float) $summaryQuery->sum('units_produced');
-        $avgEfficiency = (float) ($summaryQuery->avg('efficiency_rate') ?? 0);
-        $totalDowntime = (int) $summaryQuery->sum('downtime_minutes');
-        $totalWaste = (float) $summaryQuery->sum('waste_units');
-
-        // Per Shift output breakdown
-        $baseDateQuery = HourlyMachineReport::query();
-        if ($selectedDate) {
-            $baseDateQuery->whereDate('report_date', $selectedDate);
-        }
-        if ($machineId) {
-            $baseDateQuery->where('machine_id', $machineId);
-        }
-        $shift1Output = (float) (clone $baseDateQuery)->where('shift', '1')->sum('units_produced');
-        $shift2Output = (float) (clone $baseDateQuery)->where('shift', '2')->sum('units_produced');
-        $shift3Output = (float) (clone $baseDateQuery)->where('shift', '3')->sum('units_produced');
-
+        $selectedDate = ($dateFrom && $dateFrom === $dateTo) ? $dateFrom : '';
         $date = $selectedDate;
 
         return view('operations.hourly_reports.index', compact(
@@ -388,15 +576,28 @@ class OperationsController extends Controller
             'activeProductionOrders',
             'date',
             'selectedDate',
+            'dateFrom',
+            'dateTo',
+            'period',
             'machineId',
             'shift',
+            'productId',
+            'downtimeFilter',
+            'effFilter',
+            'operatorSearch',
+            'viewMode',
             'totalProduced',
             'avgEfficiency',
             'totalDowntime',
             'totalWaste',
+            'totalRecords',
+            'zeroDowntimeCount',
+            'zeroDowntimeRate',
             'shift1Output',
             'shift2Output',
-            'shift3Output'
+            'shift3Output',
+            'shiftCustomOutput',
+            'machineAnalytics'
         ));
     }
 
@@ -406,8 +607,8 @@ class OperationsController extends Controller
             'machine_id' => 'required|exists:machines,id',
             'operator_name' => 'required|string|max:255',
             'report_date' => 'required|date',
-            'shift' => 'nullable|string|in:1,2,3',
-            'hour_slot' => 'required|string|max:50',
+            'shift' => 'nullable|string|max:50',
+            'hour_slot' => 'required|string|max:100',
             'units_produced' => 'required|numeric|min:0',
             'belt_speed_m_min' => 'required|numeric|min:0.01',
             'efficiency_rate' => 'nullable|numeric|min:0',
@@ -512,7 +713,8 @@ class OperationsController extends Controller
         ]);
 
         return redirect()->route('operations.hourlyReports', [
-            'date' => $validated['report_date'],
+            'date_from' => $validated['report_date'],
+            'date_to' => $validated['report_date'],
             'machine_id' => $machine->id,
             'shift' => $validated['shift'] ?? '1',
         ])->with('success', 'تم تسجيل تقرير الساعة ('.$validated['hour_slot'].') للوردية بنجاح وحساب كفاءة الماكينة أوتوماتيكياً بنسبة '.$eff.'% وتحديث المؤشرات للإدارة العليا.');
@@ -526,8 +728,8 @@ class OperationsController extends Controller
 
         $validated = $request->validate([
             'operator_name' => 'required|string|max:255',
-            'shift' => 'nullable|string|in:1,2,3',
-            'hour_slot' => 'nullable|string|max:50',
+            'shift' => 'nullable|string|max:50',
+            'hour_slot' => 'nullable|string|max:100',
             'product_id' => 'nullable|exists:products,id',
             'units_produced' => 'required|numeric|min:0',
             'belt_speed_m_min' => 'required|numeric|min:0.01',

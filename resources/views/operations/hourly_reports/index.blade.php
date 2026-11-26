@@ -1,44 +1,58 @@
 @extends('layouts.app')
 
-@section('title', 'تقارير الماكينات كل ساعة')
+@section('title', 'تقارير فحص وتشغيل الماكينات كل ساعة')
 
 @section('content')
 <div class="space-y-6">
 
     <!-- Top Action Bar -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-clock-rotate-left text-red-600"></i>
-                <span>تقارير فحص وتشغيل الماكينات كل ساعة (معدل الإنتاج والكفاءة)</span>
+                <i class="fa-solid fa-gauge-high text-red-600"></i>
+                <span>تقارير فحص وتشغيل الماكينات كل ساعة (متابعة الأداء، الورديات، والتحليلات الشاملة)</span>
             </h1>
-            <p class="text-xs text-slate-500">متابعة دقيقة لكل ساعة مقسمة على الورديات الثلاث (24 ساعة) متضمنة حساب كفاءة OEE والتوصيات التشغيلية الذكية</p>
+            <p class="text-xs text-slate-500 mt-1">
+                نظام تشغيلي متكامل يتيح مرونة الساعات والورديات، فلاتر متعددة بنمط الإكسيل، كشف أداء الماكينات الشهري، ومتابعة فترات التوقف والخمول
+            </p>
         </div>
-        <div class="flex items-center gap-2.5">
+        
+        <div class="flex flex-wrap items-center gap-2.5">
+            <!-- Excel CSV Export Button -->
+            <a href="{{ route('operations.hourlyReports.export', array_merge(request()->query(), ['export' => 'csv'])) }}" 
+               class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition flex items-center gap-2"
+               title="تحميل كشيت إكسيل مطابق للفلاتر المختارة">
+                <i class="fa-solid fa-file-excel text-sm"></i>
+                <span>تصدير إكسيل (CSV)</span>
+            </a>
+
+            <!-- Print Button -->
             <button onclick="window.print()" class="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-2">
                 <i class="fa-solid fa-print text-slate-500"></i>
-                <span>طباعة كشف الوردية</span>
+                <span>طباعة الكشف</span>
             </button>
+
+            <!-- New Report Modal Button -->
             <button onclick="document.getElementById('newReportModal').classList.remove('hidden')" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black shadow-md hover:shadow-lg transition flex items-center gap-2">
                 <i class="fa-solid fa-plus-circle"></i>
-                <span>تسجيل تقرير ساعة جديدة</span>
+                <span>تسجيل ساعة تشغيل جديدة</span>
             </button>
         </div>
     </div>
 
-    <!-- Daily Performance Summary KPI Bar -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+    <!-- Live Performance Summary KPI Bar (Based on Applied Filters) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xl flex-shrink-0">
                 <i class="fa-solid fa-boxes-packing"></i>
             </div>
             <div>
-                <p class="text-xs font-bold text-slate-400">إجمالي إنتاج اليوم المسجل</p>
+                <p class="text-xs font-bold text-slate-400">إجمالي الإنتاج الفعلي</p>
                 <h3 class="text-xl font-black text-slate-900">{{ number_format($totalProduced) }} <span class="text-xs font-medium text-slate-500">قطعة</span></h3>
             </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl flex-shrink-0">
                 <i class="fa-solid fa-gauge-high"></i>
             </div>
@@ -48,171 +62,554 @@
             </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-xl flex-shrink-0">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-slate-400">ساعات بدون أعطال (صافي)</p>
+                <h3 class="text-xl font-black text-teal-700">{{ $zeroDowntimeRate }}% <span class="text-[10px] font-bold text-slate-400">({{ $zeroDowntimeCount }}/{{ $totalRecords }} ساعة)</span></h3>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl flex-shrink-0">
                 <i class="fa-solid fa-stopwatch"></i>
             </div>
             <div>
-                <p class="text-xs font-bold text-slate-400">إجمالي التوقفات التشغيلية</p>
-                <h3 class="text-xl font-black text-amber-700">{{ $totalDowntime }} <span class="text-xs font-medium text-slate-500">دقيقة</span></h3>
+                <p class="text-xs font-bold text-slate-400">إجمالي دقائق التوقف</p>
+                <h3 class="text-xl font-black text-amber-700">{{ $totalDowntime }} <span class="text-xs font-medium text-slate-500">دقيقة</span> <span class="text-[10px] text-slate-400 font-bold">({{ round($totalDowntime / 60, 1) }} س)</span></h3>
             </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl flex-shrink-0">
                 <i class="fa-solid fa-trash-can"></i>
             </div>
             <div>
-                <p class="text-xs font-bold text-slate-400">إجمالي الهادر / التالف</p>
+                <p class="text-xs font-bold text-slate-400">إجمالي الهادر التالف</p>
                 <h3 class="text-xl font-black text-rose-700">{{ number_format($totalWaste) }} <span class="text-xs font-medium text-slate-500">قطعة</span></h3>
             </div>
         </div>
     </div>
 
-    <!-- 24-Hour Factory Shifts Breakdown Bar (وردية 1 و 2 و 3) -->
-    <div class="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+    <!-- Shifts Output Breakdown Bar (توزيع إنتاج الورديات) -->
+    <div class="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
         <div class="flex items-center justify-between border-b border-slate-100 pb-2">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-arrows-spin text-red-600"></i>
-                <h3 class="text-sm font-black text-slate-900">إنتاج مصانع ألفا حسب الورديات الثلاث (تغطية 24 ساعة):</h3>
+                <h3 class="text-sm font-black text-slate-900">توزيع إنتاج الورديات (تغطية 24 ساعة):</h3>
             </div>
-            <span class="text-[11px] text-slate-400 font-bold">اليوم: {{ $selectedDate ?: date('Y-m-d') }}</span>
+            <span class="text-[11px] text-slate-400 font-bold">الفترة: {{ $dateFrom ?: 'من البداية' }} إلى {{ $dateTo ?: 'الآن' }}</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <!-- Shift 1 -->
-            <a href="{{ route('operations.hourlyReports', ['date' => $selectedDate ?: date('Y-m-d'), 'machine_id' => request('machine_id'), 'shift' => '1']) }}" 
-               class="p-4 rounded-2xl border-2 transition relative overflow-hidden flex items-center justify-between {{ ($shift === '1') ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-400/40 shadow-sm' : 'bg-slate-50/70 border-slate-200 hover:border-amber-300 shadow-xs' }}">
+            <div class="p-3.5 rounded-2xl border-2 flex items-center justify-between {{ ($shift === '1') ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-400/30' : 'bg-slate-50/70 border-slate-200' }}">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg flex-shrink-0">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-base flex-shrink-0">
                         <i class="fa-solid fa-sun"></i>
                     </div>
                     <div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-xs font-black text-slate-900">الوردية الأولى</span>
-                            <span class="text-[10px] bg-amber-200/70 text-amber-900 font-black px-1.5 py-0.5 rounded">الصباحية</span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 font-medium mt-0.5">08:00 ص - 04:00 م (8 ساعات)</p>
+                        <b class="text-xs text-slate-900 block">الوردية الأولى (صباحية)</b>
+                        <span class="text-[10px] text-slate-500">08:00 ص - 04:00 م</span>
                     </div>
                 </div>
                 <div class="text-left">
-                    <span class="text-[10px] font-bold text-slate-400 block">إنتاج الوردية</span>
-                    <span class="text-base font-black text-amber-900">{{ number_format($shift1Output) }} <span class="text-[10px] font-normal text-slate-500">قطعة</span></span>
+                    <span class="text-[10px] text-slate-400 block font-bold">الإنتاج</span>
+                    <b class="text-sm font-black text-amber-900">{{ number_format($shift1Output) }}</b>
                 </div>
-            </a>
+            </div>
 
             <!-- Shift 2 -->
-            <a href="{{ route('operations.hourlyReports', ['date' => $selectedDate ?: date('Y-m-d'), 'machine_id' => request('machine_id'), 'shift' => '2']) }}" 
-               class="p-4 rounded-2xl border-2 transition relative overflow-hidden flex items-center justify-between {{ ($shift === '2') ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-400/40 shadow-sm' : 'bg-slate-50/70 border-slate-200 hover:border-blue-300 shadow-xs' }}">
+            <div class="p-3.5 rounded-2xl border-2 flex items-center justify-between {{ ($shift === '2') ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-400/30' : 'bg-slate-50/70 border-slate-200' }}">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg flex-shrink-0">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-base flex-shrink-0">
                         <i class="fa-solid fa-cloud-sun"></i>
                     </div>
                     <div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-xs font-black text-slate-900">الوردية الثانية</span>
-                            <span class="text-[10px] bg-blue-200/70 text-blue-900 font-black px-1.5 py-0.5 rounded">المسائية</span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 font-medium mt-0.5">04:00 م - 12:00 ص (8 ساعات)</p>
+                        <b class="text-xs text-slate-900 block">الوردية الثانية (مسائية)</b>
+                        <span class="text-[10px] text-slate-500">04:00 م - 12:00 ص</span>
                     </div>
                 </div>
                 <div class="text-left">
-                    <span class="text-[10px] font-bold text-slate-400 block">إنتاج الوردية</span>
-                    <span class="text-base font-black text-blue-900">{{ number_format($shift2Output) }} <span class="text-[10px] font-normal text-slate-500">قطعة</span></span>
+                    <span class="text-[10px] text-slate-400 block font-bold">الإنتاج</span>
+                    <b class="text-sm font-black text-blue-900">{{ number_format($shift2Output) }}</b>
                 </div>
-            </a>
+            </div>
 
             <!-- Shift 3 -->
-            <a href="{{ route('operations.hourlyReports', ['date' => $selectedDate ?: date('Y-m-d'), 'machine_id' => request('machine_id'), 'shift' => '3']) }}" 
-               class="p-4 rounded-2xl border-2 transition relative overflow-hidden flex items-center justify-between {{ ($shift === '3') ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-400/40 shadow-sm' : 'bg-slate-50/70 border-slate-200 hover:border-indigo-300 shadow-xs' }}">
+            <div class="p-3.5 rounded-2xl border-2 flex items-center justify-between {{ ($shift === '3') ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-400/30' : 'bg-slate-50/70 border-slate-200' }}">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-lg flex-shrink-0">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-base flex-shrink-0">
                         <i class="fa-solid fa-moon"></i>
                     </div>
                     <div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-xs font-black text-slate-900">الوردية الثالثة</span>
-                            <span class="text-[10px] bg-indigo-200/70 text-indigo-900 font-black px-1.5 py-0.5 rounded">الليلية</span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 font-medium mt-0.5">12:00 ص - 08:00 ص (8 ساعات)</p>
+                        <b class="text-xs text-slate-900 block">الوردية الثالثة (ليلية)</b>
+                        <span class="text-[10px] text-slate-500">12:00 ص - 08:00 ص</span>
                     </div>
                 </div>
                 <div class="text-left">
-                    <span class="text-[10px] font-bold text-slate-400 block">إنتاج الوردية</span>
-                    <span class="text-base font-black text-indigo-900">{{ number_format($shift3Output) }} <span class="text-[10px] font-normal text-slate-500">قطعة</span></span>
+                    <span class="text-[10px] text-slate-400 block font-bold">الإنتاج</span>
+                    <b class="text-sm font-black text-indigo-900">{{ number_format($shift3Output) }}</b>
                 </div>
-            </a>
+            </div>
+
+            <!-- Shift Custom / Extra -->
+            <div class="p-3.5 rounded-2xl border-2 flex items-center justify-between {{ ($shift === 'custom') ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400/30' : 'bg-slate-50/70 border-slate-200' }}">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base flex-shrink-0">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div>
+                        <b class="text-xs text-slate-900 block">وردية مخصصة / إضافية</b>
+                        <span class="text-[10px] text-slate-500">ساعات مرنة مخصصة</span>
+                    </div>
+                </div>
+                <div class="text-left">
+                    <span class="text-[10px] text-slate-400 block font-bold">الإنتاج</span>
+                    <b class="text-sm font-black text-emerald-900">{{ number_format($shiftCustomOutput) }}</b>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Filter by Date, Machine & Shift -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
-        <form method="GET" action="{{ route('operations.hourlyReports') }}" class="flex flex-wrap items-center justify-between gap-3 m-0">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-2">
-                    <label class="font-bold text-slate-700">التاريخ:</label>
-                    <input type="date" name="date" value="{{ $selectedDate }}" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:ring-1 focus:ring-red-600 outline-none">
+    <!-- View Mode Switcher Tabs (3 Distinct Perspectives) -->
+    <div class="flex items-center justify-between bg-white p-2 rounded-2xl border border-slate-200 shadow-xs">
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="switchViewMode('grid')" id="tab_btn_grid" class="view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 {{ $viewMode === 'grid' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
+                <i class="fa-solid fa-table-cells text-sm"></i>
+                <span>جدول البيانات التفاعلي (نمط الإكسيل مع الفلاتر)</span>
+            </button>
+
+            <button type="button" onclick="switchViewMode('analytics')" id="tab_btn_analytics" class="view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 {{ $viewMode === 'analytics' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
+                <i class="fa-solid fa-industry text-sm"></i>
+                <span>كشف أداء الماكينات (الشهري واليومي والخمول)</span>
+            </button>
+
+            <button type="button" onclick="switchViewMode('cards')" id="tab_btn_cards" class="view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 {{ $viewMode === 'cards' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
+                <i class="fa-solid fa-id-card text-sm"></i>
+                <span>بطاقات الساعات التفصيلية (صور المنتجات والـ BOM)</span>
+            </button>
+        </div>
+
+        <div class="text-xs text-slate-400 font-bold hidden sm:block px-3">
+            إجمالي السجلات: <span class="text-slate-900 font-black">{{ $reports->total() }}</span> ساعة مسجلة
+        </div>
+    </div>
+
+    <!-- Multi-Column Excel Filter Toolbar (شريط الفلاتر الذكي بنمط الإكسيل) -->
+    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-filter text-red-600"></i>
+                <h3 class="text-xs font-black text-slate-900">شريط الفلاتر المتقدمة الشاملة (فلترة متعددة على مستوى كل عمود):</h3>
+            </div>
+            
+            <!-- Quick Date Filter Shortcuts -->
+            <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                <span class="text-[10px] text-slate-400 font-bold ml-1">فترات سريعة:</span>
+                <a href="{{ route('operations.hourlyReports', array_merge(request()->except(['date_from', 'date_to', 'date', 'page']), ['period' => 'today'])) }}" class="px-2.5 py-1 rounded-lg border {{ ($period === 'today' || ($dateFrom === date('Y-m-d') && $dateTo === date('Y-m-d'))) ? 'bg-red-600 text-white border-red-600 font-black' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">اليوم</a>
+                <a href="{{ route('operations.hourlyReports', array_merge(request()->except(['date_from', 'date_to', 'date', 'page']), ['period' => 'yesterday'])) }}" class="px-2.5 py-1 rounded-lg border {{ $period === 'yesterday' ? 'bg-red-600 text-white border-red-600 font-black' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">أمس</a>
+                <a href="{{ route('operations.hourlyReports', array_merge(request()->except(['date_from', 'date_to', 'date', 'page']), ['period' => 'this_week'])) }}" class="px-2.5 py-1 rounded-lg border {{ $period === 'this_week' ? 'bg-red-600 text-white border-red-600 font-black' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">هذا الأسبوع</a>
+                <a href="{{ route('operations.hourlyReports', array_merge(request()->except(['date_from', 'date_to', 'date', 'page']), ['period' => 'this_month'])) }}" class="px-2.5 py-1 rounded-lg border {{ $period === 'this_month' ? 'bg-red-600 text-white border-red-600 font-black' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">هذا الشهر</a>
+                <a href="{{ route('operations.hourlyReports', array_merge(request()->except(['date_from', 'date_to', 'date', 'page']), ['period' => 'last_month'])) }}" class="px-2.5 py-1 rounded-lg border {{ $period === 'last_month' ? 'bg-red-600 text-white border-red-600 font-black' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">الشهر السابق</a>
+                <a href="{{ route('operations.hourlyReports', array_merge(request()->except(['date_from', 'date_to', 'date', 'period', 'page']), ['period' => 'all'])) }}" class="px-2.5 py-1 rounded-lg border {{ $period === 'all' ? 'bg-slate-900 text-white border-slate-900 font-black' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">كافة التواريخ</a>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ route('operations.hourlyReports') }}" id="filterForm" class="space-y-4 m-0 text-xs">
+            <input type="hidden" name="view" id="filter_view_input" value="{{ $viewMode }}">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <!-- Date From -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">من تاريخ:</label>
+                    <input type="date" name="date_from" value="{{ $dateFrom }}" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none">
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <label class="font-bold text-slate-700">الماكينة:</label>
-                    <select name="machine_id" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-red-600 outline-none">
+                <!-- Date To -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">إلى تاريخ:</label>
+                    <input type="date" name="date_to" value="{{ $dateTo }}" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none">
+                </div>
+
+                <!-- Machine Filter -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">الماكينة (المكن):</label>
+                    <select name="machine_id" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none">
                         <option value="">كافة الماكينات</option>
                         @foreach($machines as $m)
-                            <option value="{{ $m->id }}" {{ request('machine_id') == $m->id ? 'selected' : '' }}>
+                            <option value="{{ $m->id }}" {{ $machineId == $m->id ? 'selected' : '' }}>
                                 {{ $m->name }} ({{ $m->code }})
                             </option>
                         @endforeach
                     </select>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <label class="font-bold text-slate-700">الوردية:</label>
-                    <select name="shift" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold focus:ring-1 focus:ring-red-600 outline-none">
-                        <option value="all" {{ ($shift == 'all' || empty($shift)) ? 'selected' : '' }}>كافة الورديات (1 + 2 + 3)</option>
-                        <option value="1" {{ $shift === '1' ? 'selected' : '' }}>☀️ الوردية 1 (الصباحية 08:00 - 16:00)</option>
-                        <option value="2" {{ $shift === '2' ? 'selected' : '' }}>🌆 الوردية 2 (المسائية 16:00 - 00:00)</option>
-                        <option value="3" {{ $shift === '3' ? 'selected' : '' }}>🌙 الوردية 3 (الليلية 00:00 - 08:00)</option>
+                <!-- Shift Filter -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">الوردية:</label>
+                    <select name="shift" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none">
+                        <option value="all" {{ ($shift === 'all' || empty($shift)) ? 'selected' : '' }}>كافة الورديات</option>
+                        <option value="1" {{ $shift === '1' ? 'selected' : '' }}>☀️ وردية 1 (الصباحية)</option>
+                        <option value="2" {{ $shift === '2' ? 'selected' : '' }}>🌆 وردية 2 (المسائية)</option>
+                        <option value="3" {{ $shift === '3' ? 'selected' : '' }}>🌙 وردية 3 (الليلية)</option>
+                        <option value="custom" {{ $shift === 'custom' ? 'selected' : '' }}>⚡ وردية مخصصة / إضافية</option>
                     </select>
                 </div>
 
-                <button type="submit" class="px-4 py-1.5 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition">
-                    تصفية
-                </button>
-            </div>
+                <!-- Downtime / Breakdown Filter (فكرة البلانكة والفاضي) -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1 text-red-700 flex items-center gap-1">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>فلتر الأعطال والتوقفات:</span>
+                    </label>
+                    <select name="downtime_filter" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none bg-slate-50">
+                        <option value="all" {{ ($downtimeFilter === 'all' || empty($downtimeFilter)) ? 'selected' : '' }}>كافة الساعات (تشغيل وأعطال)</option>
+                        <option value="zero" {{ ($downtimeFilter === 'zero' || $downtimeFilter === 'blank') ? 'selected' : '' }}>🟢 ساعات خالية من الأعطال (بلانكة / بدون توقف)</option>
+                        <option value="has_downtime" {{ $downtimeFilter === 'has_downtime' ? 'selected' : '' }}>🔴 ساعات بها أعطال وتوقف فقط</option>
+                    </select>
+                </div>
 
-            <!-- Quick Filter Shortcuts -->
-            <div class="flex flex-wrap items-center gap-2 text-xs">
-                <a href="{{ route('operations.hourlyReports', ['date' => date('Y-m-d'), 'machine_id' => request('machine_id'), 'shift' => $shift]) }}" class="px-2.5 py-1 rounded-lg border {{ $selectedDate === date('Y-m-d') ? 'bg-red-600 text-white border-red-600 font-bold' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">
-                    اليوم
-                </a>
-                <a href="{{ route('operations.hourlyReports', ['date' => \Carbon\Carbon::yesterday()->toDateString(), 'machine_id' => request('machine_id'), 'shift' => $shift]) }}" class="px-2.5 py-1 rounded-lg border {{ $selectedDate === \Carbon\Carbon::yesterday()->toDateString() ? 'bg-red-600 text-white border-red-600 font-bold' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">
-                    أمس
-                </a>
-                <a href="{{ route('operations.hourlyReports', ['date' => 'all', 'machine_id' => request('machine_id'), 'shift' => $shift]) }}" class="px-2.5 py-1 rounded-lg border {{ empty($selectedDate) ? 'bg-slate-800 text-white border-slate-800 font-bold' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100' }} transition">
-                    كافة التواريخ
-                </a>
-                <span class="text-slate-400 font-medium mr-2">عدد الساعات المسجلة: <b>{{ $reports->total() }}</b></span>
+                <!-- Efficiency OEE Filter -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">كفاءة التشغيل OEE:</label>
+                    <select name="eff_filter" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none">
+                        <option value="all" {{ ($effFilter === 'all' || empty($effFilter)) ? 'selected' : '' }}>كافة النسب</option>
+                        <option value="high" {{ $effFilter === 'high' ? 'selected' : '' }}>🟢 كفاءة مثالية (90% فأعلى)</option>
+                        <option value="medium" {{ $effFilter === 'medium' ? 'selected' : '' }}>🟡 كفاءة مقبولة (75% - 89%)</option>
+                        <option value="low" {{ $effFilter === 'low' ? 'selected' : '' }}>🔴 كفاءة منخفضة (أقل من 75%)</option>
+                    </select>
+                </div>
+
+                <!-- Product Filter -->
+                <div class="lg:col-span-2">
+                    <label class="block font-bold text-slate-700 mb-1">الصنف / المنتج:</label>
+                    <select name="product_id" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none">
+                        <option value="">كافة الأصناف المسجلة</option>
+                        @foreach($products as $p)
+                            <option value="{{ $p->id }}" {{ $productId == $p->id ? 'selected' : '' }}>
+                                {{ $p->name }} ({{ $p->code }})
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Operator Search -->
+                <div class="lg:col-span-2">
+                    <label class="block font-bold text-slate-700 mb-1">اسم المشغل / الفني:</label>
+                    <input type="text" name="operator" value="{{ $operatorSearch }}" placeholder="بحث باسم المشغل المسجل..." class="w-full px-3 py-1.5 border border-slate-200 rounded-xl focus:ring-1 focus:ring-red-600 outline-none">
+                </div>
+
+                <!-- Action Filter Buttons -->
+                <div class="lg:col-span-2 flex items-end gap-2">
+                    <button type="submit" class="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black transition flex items-center justify-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>تطبيق الفلترة</span>
+                    </button>
+                    <a href="{{ route('operations.hourlyReports') }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition flex items-center gap-1" title="إعادة تعيين الفلاتر">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>إعادة تعيين</span>
+                    </a>
+                </div>
             </div>
         </form>
     </div>
 
-    <!-- Hourly Reports Cards with Shift Identification & AI Decision Recommendations -->
-    <div class="space-y-4">
+    <!-- ================= VIEW 1: EXCEL-LIKE DATA GRID ================= -->
+    <div id="view_grid_container" class="{{ $viewMode === 'grid' ? '' : 'hidden' }} space-y-4">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-table text-red-600"></i>
+                    <h3 class="font-black text-slate-900">جدول السجلات المفصلة (مطابق تماماً لنمط الإكسيل مع تجميع تلقائي):</h3>
+                </div>
+                <div class="flex items-center gap-2 text-slate-500 font-bold">
+                    <span>عدد السجلات المعروضة: <b>{{ $reports->count() }}</b> من أصل <b>{{ $reports->total() }}</b></span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs">
+                    <thead>
+                        <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 font-black text-[11px] whitespace-nowrap">
+                            <th class="py-3 px-3 text-center">م</th>
+                            <th class="py-3 px-3">التاريخ</th>
+                            <th class="py-3 px-3">الوردية</th>
+                            <th class="py-3 px-3">الفترة (الساعة)</th>
+                            <th class="py-3 px-3">الماكينة</th>
+                            <th class="py-3 px-3">الصنف المشغل ومحتوياته</th>
+                            <th class="py-3 px-3 text-center">الإنتاج (قطعة)</th>
+                            <th class="py-3 px-3 text-center">السرعة (قطعة/د)</th>
+                            <th class="py-3 px-3 text-center">كفاءة OEE</th>
+                            <th class="py-3 px-3 text-center">الهادر (قطعة)</th>
+                            <th class="py-3 px-3 text-center">التوقف (دقيقة)</th>
+                            <th class="py-3 px-3">سبب التوقف</th>
+                            <th class="py-3 px-3">الإجراء المتخذ</th>
+                            <th class="py-3 px-3">المشغل</th>
+                            <th class="py-3 px-3 text-center">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium text-slate-800 text-[11px]">
+                        @forelse($reports as $index => $rep)
+                            <tr class="hover:bg-slate-50/80 transition {{ $rep->downtime_minutes > 0 ? 'bg-amber-50/30' : '' }}">
+                                <td class="py-3 px-3 text-center font-bold text-slate-400">
+                                    {{ $reports->firstItem() + $index }}
+                                </td>
+                                <td class="py-3 px-3 font-bold whitespace-nowrap">
+                                    {{ $rep->report_date ? $rep->report_date->format('Y-m-d') : '-' }}
+                                </td>
+                                <td class="py-3 px-3 whitespace-nowrap">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black border {{ $rep->shift_badge_class }}">
+                                        {{ $rep->shift_label }}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-3 font-mono font-bold text-slate-900 whitespace-nowrap dir-ltr text-right">
+                                    {{ $rep->hour_slot }}
+                                </td>
+                                <td class="py-3 px-3 whitespace-nowrap">
+                                    <div class="font-extrabold text-slate-900">{{ $rep->machine->name }}</div>
+                                    <span class="text-[10px] text-slate-400">{{ $rep->machine->code }}</span>
+                                </td>
+                                <td class="py-3 px-3 min-w-[200px]">
+                                    @php $actProd = $rep->active_product; @endphp
+                                    @if($actProd)
+                                        <div class="flex items-center gap-2">
+                                            @if($actProd->image_url)
+                                                <img src="{{ $actProd->image_url }}" alt="{{ $actProd->name }}" class="w-8 h-8 rounded-lg object-cover border border-slate-200 cursor-pointer flex-shrink-0" onclick="openImageModal('{{ $actProd->image_url }}')">
+                                            @endif
+                                            <div>
+                                                <b class="text-slate-900 block truncate max-w-[180px]">{{ $actProd->name }}</b>
+                                                <span class="text-[10px] text-slate-400">{{ $actProd->code }}</span>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <span class="text-slate-400 italic">غير محدد</span>
+                                    @endif
+                                </td>
+                                <td class="py-3 px-3 text-center font-black text-slate-900 font-mono text-xs whitespace-nowrap">
+                                    {{ number_format($rep->units_produced) }}
+                                </td>
+                                <td class="py-3 px-3 text-center font-bold text-blue-700 font-mono whitespace-nowrap">
+                                    {{ $rep->belt_speed_m_min }}
+                                </td>
+                                <td class="py-3 px-3 text-center whitespace-nowrap">
+                                    <span class="px-2 py-0.5 rounded-lg font-black text-xs font-mono {{ $rep->efficiency_rate >= 90 ? 'bg-emerald-100 text-emerald-800' : ($rep->efficiency_rate >= 75 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800') }}">
+                                        {{ $rep->efficiency_rate }}%
+                                    </span>
+                                </td>
+                                <td class="py-3 px-3 text-center font-bold font-mono whitespace-nowrap {{ $rep->waste_units > 0 ? 'text-rose-600' : 'text-slate-400' }}">
+                                    {{ $rep->waste_units }}
+                                </td>
+                                <td class="py-3 px-3 text-center font-bold font-mono whitespace-nowrap {{ $rep->downtime_minutes > 0 ? 'text-amber-700 bg-amber-100/60 rounded' : 'text-slate-400' }}">
+                                    {{ $rep->downtime_minutes }}
+                                </td>
+                                <td class="py-3 px-3 text-slate-600 max-w-[180px] truncate" title="{{ $rep->downtime_reason }}">
+                                    {{ $rep->downtime_reason ?: 'تشغيل منتظم' }}
+                                </td>
+                                <td class="py-3 px-3 text-slate-500 max-w-[180px] truncate" title="{{ $rep->actions_taken }}">
+                                    {{ $rep->actions_taken ?: '-' }}
+                                </td>
+                                <td class="py-3 px-3 font-bold text-slate-700 whitespace-nowrap">
+                                    {{ $rep->operator_name }}
+                                </td>
+                                <td class="py-3 px-3 text-center whitespace-nowrap">
+                                    @if($rep->is_editable)
+                                        <button type="button" onclick="openEditReportModal({{ json_encode([
+                                            'id' => $rep->id,
+                                            'machine_name' => $rep->machine->name,
+                                            'machine_code' => $rep->machine->code,
+                                            'shift' => $rep->shift ?? '1',
+                                            'hour_slot' => $rep->hour_slot,
+                                            'report_date' => $rep->report_date->format('Y-m-d'),
+                                            'operator_name' => $rep->operator_name,
+                                            'product_id' => $rep->product_id,
+                                            'units_produced' => (float)$rep->units_produced,
+                                            'belt_speed_m_min' => (float)$rep->belt_speed_m_min,
+                                            'waste_units' => (float)$rep->waste_units,
+                                            'downtime_minutes' => (int)$rep->downtime_minutes,
+                                            'downtime_reason' => $rep->downtime_reason,
+                                            'actions_taken' => $rep->actions_taken,
+                                        ]) }})" class="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition" title="تعديل بيانات الساعة">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </button>
+                                    @else
+                                        <span class="text-slate-300" title="مغلق لانتهاء اليوم"><i class="fa-solid fa-lock"></i></span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="15" class="py-12 text-center text-slate-400 font-bold">
+                                    لا توجد بيانات مطابقة للفلاتر المختارة حالياً.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                    <!-- Totals Summary Footer Row -->
+                    @if($reports->count() > 0)
+                        <tfoot>
+                            <tr class="bg-slate-900 text-white font-black text-xs border-t-2 border-slate-900 whitespace-nowrap">
+                                <td colspan="6" class="py-3.5 px-3 text-center text-slate-300">
+                                    المجاميع المجمعة للفلاتر المحددة (Summary Totals):
+                                </td>
+                                <td class="py-3.5 px-3 text-center text-emerald-400 font-mono text-sm">
+                                    {{ number_format($totalProduced) }}
+                                </td>
+                                <td class="py-3.5 px-3 text-center text-slate-300 font-mono">
+                                    -
+                                </td>
+                                <td class="py-3.5 px-3 text-center text-emerald-400 font-mono text-sm">
+                                    {{ number_format($avgEfficiency, 1) }}%
+                                </td>
+                                <td class="py-3.5 px-3 text-center text-rose-400 font-mono text-sm">
+                                    {{ number_format($totalWaste) }}
+                                </td>
+                                <td class="py-3.5 px-3 text-center text-amber-400 font-mono text-sm">
+                                    {{ number_format($totalDowntime) }}
+                                </td>
+                                <td colspan="4" class="py-3.5 px-3 text-left text-slate-400 text-[10px] pl-4">
+                                    نسبة الساعات الخالية من الأعطال: <b class="text-teal-300">{{ $zeroDowntimeRate }}%</b>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    @endif
+                </table>
+            </div>
+
+            <div class="p-4 border-t border-slate-100">
+                {{ $reports->links() }}
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VIEW 2: MACHINE PERFORMANCE & ANALYTICS ================= -->
+    <div id="view_analytics_container" class="{{ $viewMode === 'analytics' ? '' : 'hidden' }} space-y-5">
+        <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                    <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-industry text-red-600"></i>
+                        <span>كشف أداء الماكينات (الإنتاج اليومي، إنتاج الشهر، نسب الأعطال، وتتبع فترات الخمول والتوقف التام)</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        تحليل تفصيلي لكل ماكينة لمعرفة الإنتاج الفعلي، الأيام التي لم تعمل فيها نهائياً، ومتوسط الكفاءة بدون أعطال
+                    </p>
+                </div>
+            </div>
+
+            <!-- Machine Analytics Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                @foreach($machineAnalytics as $ma)
+                    <div class="bg-slate-50/70 border border-slate-200 rounded-3xl p-5 space-y-4 hover:border-slate-300 transition relative overflow-hidden">
+                        <!-- Machine Header -->
+                        <div class="flex items-start justify-between gap-3 border-b border-slate-200/80 pb-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full {{ $ma->days_since_active === 0 ? 'bg-emerald-500 animate-pulse' : ($ma->is_alarm ? 'bg-rose-500' : 'bg-amber-500') }}"></span>
+                                    <h4 class="font-black text-sm text-slate-900">{{ $ma->machine->name }}</h4>
+                                </div>
+                                <span class="text-[10px] bg-slate-200/80 text-slate-700 font-bold px-2 py-0.5 rounded mt-1 inline-block">{{ $ma->machine->code }} | {{ $ma->machine->factory?->name }}</span>
+                            </div>
+
+                            <!-- Inactivity / Idle Status Badge -->
+                            <div>
+                                @if($ma->days_since_active === 0)
+                                    <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-black text-[10px] border border-emerald-300 flex items-center gap-1">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                        <span>تعمل اليوم</span>
+                                    </span>
+                                @elseif($ma->days_since_active !== null)
+                                    <span class="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-full font-black text-[10px] border border-rose-300 flex items-center gap-1" title="لم تسجل أي إنتاج منذ هذا التاريخ">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                        <span>متوقفة منذ {{ $ma->days_since_active }} يوم!</span>
+                                    </span>
+                                @else
+                                    <span class="px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full font-bold text-[10px]">
+                                        لم تبدأ بعد
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- 4 Core Machine Metrics -->
+                        <div class="grid grid-cols-2 gap-2.5 text-center text-xs">
+                            <div class="p-2.5 bg-white rounded-2xl border border-slate-200/70 shadow-xs">
+                                <span class="text-[10px] text-slate-400 block font-bold mb-0.5">إنتاج اليوم</span>
+                                <b class="text-sm font-black text-slate-900 font-mono">{{ number_format($ma->today_output) }} <span class="text-[10px] font-normal text-slate-500">ق</span></b>
+                            </div>
+
+                            <div class="p-2.5 bg-white rounded-2xl border border-slate-200/70 shadow-xs">
+                                <span class="text-[10px] text-slate-400 block font-bold mb-0.5">إنتاج الشهر الحالي</span>
+                                <b class="text-sm font-black text-blue-700 font-mono">{{ number_format($ma->month_output) }} <span class="text-[10px] font-normal text-slate-500">ق</span></b>
+                            </div>
+
+                            <div class="p-2.5 bg-white rounded-2xl border border-slate-200/70 shadow-xs">
+                                <span class="text-[10px] text-slate-400 block font-bold mb-0.5">متوسط OEE بالشهر</span>
+                                <b class="text-sm font-black font-mono {{ $ma->month_avg_oee >= 90 ? 'text-emerald-600' : ($ma->month_avg_oee >= 75 ? 'text-amber-600' : 'text-rose-600') }}">
+                                    {{ number_format($ma->month_avg_oee, 1) }}%
+                                </b>
+                            </div>
+
+                            <div class="p-2.5 bg-white rounded-2xl border border-slate-200/70 shadow-xs">
+                                <span class="text-[10px] text-slate-400 block font-bold mb-0.5">تشغيل بدون أعطال</span>
+                                <b class="text-sm font-black text-teal-700 font-mono">{{ $ma->zero_breakdown_rate }}%</b>
+                            </div>
+                        </div>
+
+                        <!-- Additional Monthly Performance Details -->
+                        <div class="space-y-1.5 text-xs bg-white p-3 rounded-2xl border border-slate-200/70">
+                            <div class="flex items-center justify-between text-slate-600">
+                                <span>ساعات التشغيل بالشهر:</span>
+                                <b class="font-mono text-slate-900">{{ $ma->month_hours }} ساعة</b>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-600">
+                                <span>توقفات وأعطال الشهر:</span>
+                                <b class="font-mono text-amber-700">{{ $ma->month_downtime }} دقيقة ({{ round($ma->month_downtime / 60, 1) }} س)</b>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-600">
+                                <span>أيام التشغيل الفعلية بالشهر:</span>
+                                <b class="font-mono text-emerald-700">{{ $ma->active_days_this_month }} يوم</b>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-600">
+                                <span>أيام خمول وتوقف تام بالشهر:</span>
+                                <b class="font-mono {{ $ma->idle_days_this_month > 5 ? 'text-rose-600' : 'text-slate-700' }}">{{ $ma->idle_days_this_month }} يوم</b>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-600 border-t border-slate-100 pt-1.5">
+                                <span>إجمالي الإنتاج التراكمي:</span>
+                                <b class="font-mono text-slate-900 font-black">{{ number_format($ma->total_output) }} قطعة</b>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-400 text-[10px]">
+                                <span>آخر تاريخ تسجيل:</span>
+                                <b>{{ $ma->last_active_date ?: 'لا يوجد' }}</b>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VIEW 3: DETAILED CARDS VIEW ================= -->
+    <div id="view_cards_container" class="{{ $viewMode === 'cards' ? '' : 'hidden' }} space-y-4">
         @forelse($reports as $rep)
             <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4 hover:border-slate-300 transition">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center font-black text-xs flex-shrink-0 {{ ($rep->shift ?? '1') == '1' ? 'bg-amber-100 text-amber-800 border border-amber-200' : (($rep->shift ?? '1') == '2' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-indigo-100 text-indigo-800 border border-indigo-200') }}">
+                        <div class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center font-black text-xs flex-shrink-0 {{ ($rep->shift ?? '1') == '1' ? 'bg-amber-100 text-amber-800 border border-amber-200' : (($rep->shift ?? '1') == '2' ? 'bg-blue-100 text-blue-800 border border-blue-200' : (($rep->shift ?? '1') == '3' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200')) }}">
                             @if(($rep->shift ?? '1') == '1')
                                 <i class="fa-solid fa-sun text-sm mb-0.5"></i>
                                 <span class="text-[9px]">وردية 1</span>
                             @elseif(($rep->shift ?? '1') == '2')
                                 <i class="fa-solid fa-cloud-sun text-sm mb-0.5"></i>
                                 <span class="text-[9px]">وردية 2</span>
-                            @else
+                            @elseif(($rep->shift ?? '1') == '3')
                                 <i class="fa-solid fa-moon text-sm mb-0.5"></i>
                                 <span class="text-[9px]">وردية 3</span>
+                            @else
+                                <i class="fa-solid fa-bolt text-sm mb-0.5"></i>
+                                <span class="text-[9px]">مخصصة</span>
                             @endif
                         </div>
                         <div>
@@ -269,9 +666,7 @@
                     </div>
                 </div>
 
-                @php
-                    $activeProd = $rep->active_product;
-                @endphp
+                @php $activeProd = $rep->active_product; @endphp
                 @if($activeProd)
                     <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                         <div class="flex items-center gap-3">
@@ -347,7 +742,7 @@
             <div class="bg-white rounded-3xl p-12 text-center text-slate-400 text-xs border border-slate-200 space-y-2">
                 <i class="fa-solid fa-clipboard-list text-3xl text-slate-300 block mb-2"></i>
                 <p class="font-bold text-slate-600">لا توجد تقارير ساعات مسجلة مطابقة للبحث الحالي.</p>
-                <p>اضغط على زر (تسجيل تقرير ساعة جديدة) بالأعلى للبدء في تدوين ساعات الوردية.</p>
+                <p>اضغط على زر (تسجيل ساعة تشغيل جديدة) بالأعلى للبدء في تدوين ساعات الوردية.</p>
             </div>
         @endforelse
 
@@ -356,14 +751,17 @@
         </div>
     </div>
 
-    <!-- Modal to submit new hourly report -->
+    <!-- ================= ULTRA-FLEXIBLE MODAL: SUBMIT NEW HOURLY REPORT ================= -->
     <div id="newReportModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto space-y-5">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-clock text-red-600"></i>
-                    <span>تسجيل تقرير ساعة تشغيل للماكينة</span>
-                </h3>
+                <div>
+                    <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-clock text-red-600"></i>
+                        <span>تسجيل تقرير ساعة تشغيل للماكينة</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">مرونة تامة في اختيار الوردية (1، 2، 3 أو مخصصة) ونظام الساعات (8، 10، 12 أو إدخال حر)</p>
+                </div>
                 <button type="button" onclick="document.getElementById('newReportModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
@@ -372,7 +770,7 @@
             <form action="{{ route('operations.hourlyReports.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                 @csrf
 
-                <!-- Shift Selection Tabs (وردية 1 و 2 و 3) -->
+                <!-- Shift Selection Cards -->
                 <div class="space-y-2 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
                     <div class="flex items-center justify-between">
                         <label class="block text-xs font-black text-slate-900">
@@ -381,47 +779,63 @@
                         <span class="text-[10px] text-slate-500 font-bold">تحديث تلقائي لقائمة الساعات</span>
                     </div>
                     <input type="hidden" name="shift" id="report_shift_input" value="1">
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <!-- Shift 1 Button -->
-                        <button type="button" onclick="setShiftInModal('1')" id="modal_shift_btn_1" class="shift-selector-btn p-3 rounded-xl border-2 text-right transition flex items-center justify-between border-amber-500 bg-amber-50/90 ring-2 ring-amber-400/30">
+                        <button type="button" onclick="setShiftInModal('1')" id="modal_shift_btn_1" class="shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-amber-500 bg-amber-50/90 ring-2 ring-amber-400/30">
                             <div>
-                                <div class="flex items-center gap-2">
-                                    <i class="fa-solid fa-sun text-amber-600"></i>
-                                    <b class="text-xs text-slate-900">وردية 1 (الصباحية)</b>
-                                </div>
-                                <span class="text-[10px] text-slate-500 block mt-0.5">08:00 ص - 04:00 م</span>
+                                <b class="text-xs text-slate-900 block">وردية 1</b>
+                                <span class="text-[10px] text-slate-500">الصباحية</span>
                             </div>
-                            <span id="modal_shift_check_1" class="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px]">
+                            <span id="modal_shift_check_1" class="w-4 h-4 rounded-full bg-amber-600 text-white flex items-center justify-center text-[9px]">
                                 <i class="fa-solid fa-check"></i>
                             </span>
                         </button>
 
                         <!-- Shift 2 Button -->
-                        <button type="button" onclick="setShiftInModal('2')" id="modal_shift_btn_2" class="shift-selector-btn p-3 rounded-xl border-2 text-right transition flex items-center justify-between border-slate-200 bg-white hover:border-blue-300">
+                        <button type="button" onclick="setShiftInModal('2')" id="modal_shift_btn_2" class="shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-slate-200 bg-white hover:border-blue-300">
                             <div>
-                                <div class="flex items-center gap-2">
-                                    <i class="fa-solid fa-cloud-sun text-blue-600"></i>
-                                    <b class="text-xs text-slate-900">وردية 2 (المسائية)</b>
-                                </div>
-                                <span class="text-[10px] text-slate-500 block mt-0.5">04:00 م - 12:00 ص</span>
+                                <b class="text-xs text-slate-900 block">وردية 2</b>
+                                <span class="text-[10px] text-slate-500">المسائية</span>
                             </div>
-                            <span id="modal_shift_check_2" class="hidden w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">
+                            <span id="modal_shift_check_2" class="hidden w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px]">
                                 <i class="fa-solid fa-check"></i>
                             </span>
                         </button>
 
                         <!-- Shift 3 Button -->
-                        <button type="button" onclick="setShiftInModal('3')" id="modal_shift_btn_3" class="shift-selector-btn p-3 rounded-xl border-2 text-right transition flex items-center justify-between border-slate-200 bg-white hover:border-indigo-300">
+                        <button type="button" onclick="setShiftInModal('3')" id="modal_shift_btn_3" class="shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-slate-200 bg-white hover:border-indigo-300">
                             <div>
-                                <div class="flex items-center gap-2">
-                                    <i class="fa-solid fa-moon text-indigo-600"></i>
-                                    <b class="text-xs text-slate-900">وردية 3 (الليلية)</b>
-                                </div>
-                                <span class="text-[10px] text-slate-500 block mt-0.5">12:00 ص - 08:00 ص</span>
+                                <b class="text-xs text-slate-900 block">وردية 3</b>
+                                <span class="text-[10px] text-slate-500">الليلية</span>
                             </div>
-                            <span id="modal_shift_check_3" class="hidden w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
+                            <span id="modal_shift_check_3" class="hidden w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px]">
                                 <i class="fa-solid fa-check"></i>
                             </span>
+                        </button>
+
+                        <!-- Shift Custom / Open -->
+                        <button type="button" onclick="setShiftInModal('custom')" id="modal_shift_btn_custom" class="shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-slate-200 bg-white hover:border-emerald-300">
+                            <div>
+                                <b class="text-xs text-slate-900 block">وردية مخصصة</b>
+                                <span class="text-[10px] text-slate-500">ساعات مفتوحة</span>
+                            </div>
+                            <span id="modal_shift_check_custom" class="hidden w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px]">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Shift Preset Duration Selector (8h, 10h, 12h, or Custom) -->
+                <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+                    <span class="font-bold text-slate-700 text-[11px]">نظام عدد ساعات الوردية:</span>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="setShiftHoursMode('8')" id="dur_btn_8" class="px-2.5 py-1 rounded-lg text-[11px] font-black bg-red-600 text-white transition">8 ساعات</button>
+                        <button type="button" onclick="setShiftHoursMode('10')" id="dur_btn_10" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition">10 ساعات (07ص - 05م)</button>
+                        <button type="button" onclick="setShiftHoursMode('12')" id="dur_btn_12" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition">12 ساعة (07ص - 07م)</button>
+                        <button type="button" onclick="toggleCustomHourSlot(true)" id="dur_btn_free" class="px-2.5 py-1 rounded-lg text-[11px] font-black bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 transition">
+                            <i class="fa-solid fa-pen-nib"></i>
+                            <span>إدخال حر/مخصص</span>
                         </button>
                     </div>
                 </div>
@@ -518,17 +932,43 @@
                             <label class="block text-xs font-bold text-slate-700">تاريخ الوردية *</label>
                             <span class="text-[10px] text-red-600 font-semibold">متاح اليوم أو بأثر رجعي</span>
                         </div>
-                        <input type="date" name="report_date" value="{{ $selectedDate ?: date('Y-m-d') }}" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-red-600 outline-none font-bold">
+                        <input type="date" name="report_date" value="{{ date('Y-m-d') }}" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-red-600 outline-none font-bold">
                     </div>
 
-                    <div>
+                    <!-- Flexible Hour Slot Input (Dropdown OR Free Custom Slot) -->
+                    <div class="sm:col-span-2">
                         <div class="flex items-center justify-between mb-1">
                             <label class="block text-xs font-bold text-slate-700">الفترة الزمنية (الساعة) *</label>
-                            <span id="shift_hour_badge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">ساعات وردية 1</span>
+                            <button type="button" onclick="toggleCustomHourSlot()" id="btn_toggle_custom_hour" class="text-[11px] text-blue-600 hover:text-blue-800 font-black flex items-center gap-1 transition">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                                <span id="custom_hour_label_btn">كتابة ساعة حرة يدوياً (وقت مخصص)</span>
+                            </button>
                         </div>
-                        <select name="hour_slot" id="report_hour_slot" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-red-600 outline-none">
-                            <!-- Injected by JS according to selected shift -->
-                        </select>
+
+                        <!-- Dropdown Mode (Default) -->
+                        <div id="hour_dropdown_wrapper">
+                            <select name="hour_slot" id="report_hour_slot" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-red-600 outline-none">
+                                <!-- Populated dynamically by JS -->
+                            </select>
+                        </div>
+
+                        <!-- Custom Free Input Mode -->
+                        <div id="hour_custom_wrapper" class="hidden space-y-2">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-0.5">من وقت:</label>
+                                    <input type="time" id="free_time_from" value="07:00" class="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold" onchange="updateFreeHourSlotText()">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-0.5">إلى وقت:</label>
+                                    <input type="time" id="free_time_to" value="08:00" class="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold" onchange="updateFreeHourSlotText()">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="text" name="custom_hour_slot_text" id="custom_hour_slot_text" placeholder="مثال: 07:00 ص - 08:00 ص" class="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold">
+                                <span class="text-[10px] text-slate-400">حر بالكامل</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -595,7 +1035,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">سبب التوقف</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">سبب التوقف (اتركه فارغاً إذا كان تشغيلاً مستمراً بدون أعطال)</label>
                     <input type="text" name="downtime_reason" placeholder="مثال: تغيير بكرة سيلوفان، نظافة فكوك لحام..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-red-600 outline-none">
                 </div>
 
@@ -651,18 +1091,17 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">الوردية *</label>
-                    <select name="shift" id="edit_shift" onchange="populateEditHours(this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
-                        <option value="1">☀️ الوردية الأولى (الصباحية 08:00 - 16:00)</option>
-                        <option value="2">🌆 الوردية الثانية (المسائية 16:00 - 00:00)</option>
-                        <option value="3">🌙 الوردية الثالثة (الليلية 00:00 - 08:00)</option>
+                    <select name="shift" id="edit_shift" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
+                        <option value="1">☀️ الوردية الأولى (الصباحية)</option>
+                        <option value="2">🌆 الوردية الثانية (المسائية)</option>
+                        <option value="3">🌙 الوردية الثالثة (الليلية)</option>
+                        <option value="custom">⚡ وردية مخصصة / إضافية</option>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">الساعة الزمنية *</label>
-                    <select name="hour_slot" id="edit_hour_slot" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
-                        <!-- Populated by JS -->
-                    </select>
+                    <input type="text" name="hour_slot" id="edit_hour_slot" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-1 focus:ring-blue-600 outline-none">
                 </div>
 
                 <div>
@@ -723,109 +1162,210 @@
 </div>
 
 <script>
-    // 24-Hour Factory Shift Hour Slots
-    const SHIFT_HOURS = {
-        '1': [
-            { value: '08:00 - 09:00', label: '08:00 ص - 09:00 ص' },
-            { value: '09:00 - 10:00', label: '09:00 ص - 10:00 ص' },
-            { value: '10:00 - 11:00', label: '10:00 ص - 11:00 ص' },
-            { value: '11:00 - 12:00', label: '11:00 ص - 12:00 م' },
-            { value: '12:00 - 13:00', label: '12:00 م - 01:00 م' },
-            { value: '13:00 - 14:00', label: '01:00 م - 02:00 م' },
-            { value: '14:00 - 15:00', label: '02:00 م - 03:00 م' },
-            { value: '15:00 - 16:00', label: '03:00 م - 04:00 م' }
+    // 24-Hour and Extended Shift Hour Presets
+    const SHIFT_HOURS_DATA = {
+        '8': {
+            '1': [
+                { value: '08:00 - 09:00', label: '08:00 ص - 09:00 ص' },
+                { value: '09:00 - 10:00', label: '09:00 ص - 10:00 ص' },
+                { value: '10:00 - 11:00', label: '10:00 ص - 11:00 ص' },
+                { value: '11:00 - 12:00', label: '11:00 ص - 12:00 م' },
+                { value: '12:00 - 13:00', label: '12:00 م - 01:00 م' },
+                { value: '13:00 - 14:00', label: '01:00 م - 02:00 م' },
+                { value: '14:00 - 15:00', label: '02:00 م - 03:00 م' },
+                { value: '15:00 - 16:00', label: '03:00 م - 04:00 م' }
+            ],
+            '2': [
+                { value: '16:00 - 17:00', label: '04:00 م - 05:00 م' },
+                { value: '17:00 - 18:00', label: '05:00 م - 06:00 م' },
+                { value: '18:00 - 19:00', label: '06:00 م - 07:00 م' },
+                { value: '19:00 - 20:00', label: '07:00 م - 08:00 م' },
+                { value: '20:00 - 21:00', label: '08:00 م - 09:00 م' },
+                { value: '21:00 - 22:00', label: '09:00 م - 10:00 م' },
+                { value: '22:00 - 23:00', label: '10:00 م - 11:00 م' },
+                { value: '23:00 - 00:00', label: '11:00 م - 12:00 ص' }
+            ],
+            '3': [
+                { value: '00:00 - 01:00', label: '12:00 ص - 01:00 ص' },
+                { value: '01:00 - 02:00', label: '01:00 ص - 02:00 ص' },
+                { value: '02:00 - 03:00', label: '02:00 ص - 03:00 ص' },
+                { value: '03:00 - 04:00', label: '03:00 ص - 04:00 ص' },
+                { value: '04:00 - 05:00', label: '04:00 ص - 05:00 ص' },
+                { value: '05:00 - 06:00', label: '05:00 ص - 06:00 ص' },
+                { value: '06:00 - 07:00', label: '06:00 ص - 07:00 ص' },
+                { value: '07:00 - 08:00', label: '07:00 ص - 08:00 ص' }
+            ],
+            'custom': [
+                { value: '07:00 - 08:00', label: '07:00 ص - 08:00 ص' },
+                { value: '08:00 - 09:00', label: '08:00 ص - 09:00 ص' },
+                { value: '09:00 - 10:00', label: '09:00 ص - 10:00 ص' },
+                { value: '10:00 - 11:00', label: '10:00 ص - 11:00 ص' },
+                { value: '11:00 - 12:00', label: '11:00 ص - 12:00 م' },
+                { value: '12:00 - 13:00', label: '12:00 م - 01:00 م' },
+                { value: '13:00 - 14:00', label: '01:00 م - 02:00 م' },
+                { value: '14:00 - 15:00', label: '02:00 م - 03:00 م' },
+                { value: '15:00 - 16:00', label: '03:00 م - 04:00 م' },
+                { value: '16:00 - 17:00', label: '04:00 م - 05:00 م' },
+                { value: '17:00 - 18:00', label: '05:00 م - 06:00 م' },
+                { value: '18:00 - 19:00', label: '06:00 م - 07:00 م' }
+            ]
+        },
+        '10': [
+            { value: '07:00 - 08:00', label: '07:00 ص - 08:00 ص (ساعة 1)' },
+            { value: '08:00 - 09:00', label: '08:00 ص - 09:00 ص (ساعة 2)' },
+            { value: '09:00 - 10:00', label: '09:00 ص - 10:00 ص (ساعة 3)' },
+            { value: '10:00 - 11:00', label: '10:00 ص - 11:00 ص (ساعة 4)' },
+            { value: '11:00 - 12:00', label: '11:00 ص - 12:00 م (ساعة 5)' },
+            { value: '12:00 - 13:00', label: '12:00 م - 01:00 م (ساعة 6)' },
+            { value: '13:00 - 14:00', label: '01:00 م - 02:00 م (ساعة 7)' },
+            { value: '14:00 - 15:00', label: '02:00 م - 03:00 م (ساعة 8)' },
+            { value: '15:00 - 16:00', label: '03:00 م - 04:00 م (ساعة 9)' },
+            { value: '16:00 - 17:00', label: '04:00 م - 05:00 م (ساعة 10)' }
         ],
-        '2': [
-            { value: '16:00 - 17:00', label: '04:00 م - 05:00 م' },
-            { value: '17:00 - 18:00', label: '05:00 م - 06:00 م' },
-            { value: '18:00 - 19:00', label: '06:00 م - 07:00 م' },
-            { value: '19:00 - 20:00', label: '07:00 م - 08:00 م' },
-            { value: '20:00 - 21:00', label: '08:00 م - 09:00 م' },
-            { value: '21:00 - 22:00', label: '09:00 م - 10:00 م' },
-            { value: '22:00 - 23:00', label: '10:00 م - 11:00 م' },
-            { value: '23:00 - 00:00', label: '11:00 م - 12:00 ص' }
-        ],
-        '3': [
-            { value: '00:00 - 01:00', label: '12:00 ص - 01:00 ص' },
-            { value: '01:00 - 02:00', label: '01:00 ص - 02:00 ص' },
-            { value: '02:00 - 03:00', label: '02:00 ص - 03:00 ص' },
-            { value: '03:00 - 04:00', label: '03:00 ص - 04:00 ص' },
-            { value: '04:00 - 05:00', label: '04:00 ص - 05:00 ص' },
-            { value: '05:00 - 06:00', label: '05:00 ص - 06:00 ص' },
-            { value: '06:00 - 07:00', label: '06:00 ص - 07:00 ص' },
-            { value: '07:00 - 08:00', label: '07:00 ص - 08:00 ص' }
+        '12': [
+            { value: '07:00 - 08:00', label: '07:00 ص - 08:00 ص (ساعة 1)' },
+            { value: '08:00 - 09:00', label: '08:00 ص - 09:00 ص (ساعة 2)' },
+            { value: '09:00 - 10:00', label: '09:00 ص - 10:00 ص (ساعة 3)' },
+            { value: '10:00 - 11:00', label: '10:00 ص - 11:00 ص (ساعة 4)' },
+            { value: '11:00 - 12:00', label: '11:00 ص - 12:00 م (ساعة 5)' },
+            { value: '12:00 - 13:00', label: '12:00 م - 01:00 م (ساعة 6)' },
+            { value: '13:00 - 14:00', label: '01:00 م - 02:00 م (ساعة 7)' },
+            { value: '14:00 - 15:00', label: '02:00 م - 03:00 م (ساعة 8)' },
+            { value: '15:00 - 16:00', label: '03:00 م - 04:00 م (ساعة 9)' },
+            { value: '16:00 - 17:00', label: '04:00 م - 05:00 م (ساعة 10)' },
+            { value: '17:00 - 18:00', label: '05:00 م - 06:00 م (ساعة 11)' },
+            { value: '18:00 - 19:00', label: '06:00 م - 07:00 م (ساعة 12)' }
         ]
     };
 
-    function setShiftInModal(shiftNum, selectedHour = null) {
-        document.getElementById('report_shift_input').value = shiftNum;
+    let currentDurationMode = '8';
+    let currentShift = '1';
+    let isCustomHourActive = false;
 
-        // Update button visual styles
-        ['1', '2', '3'].forEach(num => {
-            const btn = document.getElementById('modal_shift_btn_' + num);
-            const check = document.getElementById('modal_shift_check_' + num);
+    // Switch View Modes: 'grid' (Excel table) vs 'analytics' (Machine Analytics) vs 'cards' (Cards)
+    function switchViewMode(mode) {
+        document.getElementById('view_grid_container').classList.add('hidden');
+        document.getElementById('view_analytics_container').classList.add('hidden');
+        document.getElementById('view_cards_container').classList.add('hidden');
+
+        document.getElementById('tab_btn_grid').className = 'view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 bg-slate-50 text-slate-600 hover:bg-slate-100';
+        document.getElementById('tab_btn_analytics').className = 'view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 bg-slate-50 text-slate-600 hover:bg-slate-100';
+        document.getElementById('tab_btn_cards').className = 'view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 bg-slate-50 text-slate-600 hover:bg-slate-100';
+
+        if (mode === 'grid') {
+            document.getElementById('view_grid_container').classList.remove('hidden');
+            document.getElementById('tab_btn_grid').className = 'view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 bg-slate-900 text-white shadow-xs';
+        } else if (mode === 'analytics') {
+            document.getElementById('view_analytics_container').classList.remove('hidden');
+            document.getElementById('tab_btn_analytics').className = 'view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 bg-slate-900 text-white shadow-xs';
+        } else {
+            document.getElementById('view_cards_container').classList.remove('hidden');
+            document.getElementById('tab_btn_cards').className = 'view-tab-btn px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 bg-slate-900 text-white shadow-xs';
+        }
+
+        const filterViewInput = document.getElementById('filter_view_input');
+        if (filterViewInput) filterViewInput.value = mode;
+    }
+
+    function setShiftInModal(shiftVal) {
+        currentShift = shiftVal;
+        document.getElementById('report_shift_input').value = shiftVal;
+
+        ['1', '2', '3', 'custom'].forEach(s => {
+            const btn = document.getElementById('modal_shift_btn_' + s);
+            const check = document.getElementById('modal_shift_check_' + s);
             if (!btn || !check) return;
 
-            if (num === shiftNum) {
-                if (num === '1') {
-                    btn.className = 'shift-selector-btn p-3 rounded-xl border-2 text-right transition flex items-center justify-between border-amber-500 bg-amber-50/90 ring-2 ring-amber-400/30';
-                } else if (num === '2') {
-                    btn.className = 'shift-selector-btn p-3 rounded-xl border-2 text-right transition flex items-center justify-between border-blue-500 bg-blue-50/90 ring-2 ring-blue-400/30';
-                } else {
-                    btn.className = 'shift-selector-btn p-3 rounded-xl border-2 text-right transition flex items-center justify-between border-indigo-500 bg-indigo-50/90 ring-2 ring-indigo-400/30';
-                }
+            if (s === shiftVal) {
+                if (s === '1') btn.className = 'shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-amber-500 bg-amber-50 ring-2 ring-amber-400/30';
+                else if (s === '2') btn.className = 'shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-blue-500 bg-blue-50 ring-2 ring-blue-400/30';
+                else if (s === '3') btn.className = 'shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-indigo-500 bg-indigo-50 ring-2 ring-indigo-400/30';
+                else btn.className = 'shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400/30';
                 check.classList.remove('hidden');
             } else {
-                btn.className = 'shift-selector-btn p-3 rounded-xl border-2 text-right transition flex items-center justify-between border-slate-200 bg-white hover:border-slate-300';
+                btn.className = 'shift-selector-btn p-2.5 rounded-xl border-2 text-right transition flex items-center justify-between border-slate-200 bg-white hover:border-slate-300';
                 check.classList.add('hidden');
             }
         });
 
-        // Update hour dropdown
-        const select = document.getElementById('report_hour_slot');
-        const badge = document.getElementById('shift_hour_badge');
-        if (!select) return;
+        populateModalHours();
+    }
 
-        select.innerHTML = '';
-        const slots = SHIFT_HOURS[shiftNum] || SHIFT_HOURS['1'];
-        slots.forEach((s, idx) => {
-            const opt = document.createElement('option');
-            opt.value = s.value;
-            opt.textContent = `${s.label} (الساعة ${idx + 1} بالوردية)`;
-            if (selectedHour && s.value === selectedHour) {
-                opt.selected = true;
+    function setShiftHoursMode(mode) {
+        currentDurationMode = mode;
+        ['8', '10', '12'].forEach(d => {
+            const btn = document.getElementById('dur_btn_' + d);
+            if (!btn) return;
+            if (d === mode) {
+                btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-black bg-red-600 text-white transition';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 transition';
             }
-            select.appendChild(opt);
         });
 
-        if (badge) {
-            if (shiftNum === '1') {
-                badge.textContent = 'ساعات وردية 1 (الصباحية)';
-                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800';
-            } else if (shiftNum === '2') {
-                badge.textContent = 'ساعات وردية 2 (المسائية)';
-                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800';
-            } else {
-                badge.textContent = 'ساعات وردية 3 (الليلية)';
-                badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800';
+        toggleCustomHourSlot(false);
+        populateModalHours();
+    }
+
+    function populateModalHours() {
+        const select = document.getElementById('report_hour_slot');
+        if (!select) return;
+        select.innerHTML = '';
+
+        let slots = [];
+        if (currentDurationMode === '8') {
+            slots = (SHIFT_HOURS_DATA['8'] && SHIFT_HOURS_DATA['8'][currentShift]) ? SHIFT_HOURS_DATA['8'][currentShift] : SHIFT_HOURS_DATA['8']['1'];
+        } else {
+            slots = SHIFT_HOURS_DATA[currentDurationMode] || SHIFT_HOURS_DATA['8']['1'];
+        }
+
+        slots.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.value;
+            opt.textContent = s.label;
+            select.appendChild(opt);
+        });
+    }
+
+    function toggleCustomHourSlot(forceCustom = null) {
+        if (forceCustom !== null) {
+            isCustomHourActive = forceCustom;
+        } else {
+            isCustomHourActive = !isCustomHourActive;
+        }
+
+        const dropWrapper = document.getElementById('hour_dropdown_wrapper');
+        const customWrapper = document.getElementById('hour_custom_wrapper');
+        const labelBtn = document.getElementById('custom_hour_label_btn');
+        const dropSelect = document.getElementById('report_hour_slot');
+        const customTextInput = document.getElementById('custom_hour_slot_text');
+
+        if (isCustomHourActive) {
+            dropWrapper.classList.add('hidden');
+            customWrapper.classList.remove('hidden');
+            labelBtn.textContent = 'العودة لاختيار الساعات المحددة';
+            updateFreeHourSlotText();
+            if (dropSelect) dropSelect.name = 'unused_hour_slot';
+            if (customTextInput) {
+                customTextInput.name = 'hour_slot';
+                customTextInput.focus();
             }
+        } else {
+            dropWrapper.classList.remove('hidden');
+            customWrapper.classList.add('hidden');
+            labelBtn.textContent = 'كتابة ساعة حرة يدوياً (وقت مخصص)';
+            if (dropSelect) dropSelect.name = 'hour_slot';
+            if (customTextInput) customTextInput.name = 'custom_hour_slot_text';
         }
     }
 
-    function populateEditHours(shiftNum, selectedHour = null) {
-        const select = document.getElementById('edit_hour_slot');
-        if (!select) return;
-        select.innerHTML = '';
-        const slots = SHIFT_HOURS[shiftNum] || SHIFT_HOURS['1'];
-        slots.forEach((s, idx) => {
-            const opt = document.createElement('option');
-            opt.value = s.value;
-            opt.textContent = `${s.label} (الساعة ${idx + 1})`;
-            if (selectedHour && s.value === selectedHour) {
-                opt.selected = true;
-            }
-            select.appendChild(opt);
-        });
+    function updateFreeHourSlotText() {
+        const from = document.getElementById('free_time_from')?.value || '07:00';
+        const to = document.getElementById('free_time_to')?.value || '08:00';
+        const txtInput = document.getElementById('custom_hour_slot_text');
+        if (txtInput) {
+            txtInput.value = `${from} - ${to}`;
+        }
     }
 
     function calculateOEE() {
@@ -836,9 +1376,7 @@
         const speed = parseFloat(speedInput ? speedInput.value : 0) || 0;
         const units = parseFloat(unitsInput ? unitsInput.value : 0) || 0;
         
-        // Theoretical Hourly Capacity = Speed (pieces/min) * 60 minutes
         const theoreticalHour = speed * 60;
-        
         let efficiency = 0;
         if (theoreticalHour > 0) {
             efficiency = (units / theoreticalHour) * 100;
@@ -847,7 +1385,6 @@
         const formattedEff = efficiency.toFixed(2);
         if (effInput) effInput.value = formattedEff;
         
-        // Update live breakdown display
         const calcTheo = document.getElementById('calc_theoretical');
         const calcAct = document.getElementById('calc_actual');
         const calcRes = document.getElementById('calc_eff_result');
@@ -856,25 +1393,18 @@
         if (calcAct) calcAct.innerText = units.toLocaleString('en-US') + ' قطعة';
         if (calcRes) {
             calcRes.innerText = formattedEff + '%';
-            if (efficiency >= 90) {
-                calcRes.className = 'text-emerald-600 font-mono text-xs font-black';
-            } else if (efficiency >= 75) {
-                calcRes.className = 'text-amber-600 font-mono text-xs font-black';
-            } else {
-                calcRes.className = 'text-rose-600 font-mono text-xs font-black';
-            }
+            if (efficiency >= 90) calcRes.className = 'text-emerald-600 font-mono text-xs font-black';
+            else if (efficiency >= 75) calcRes.className = 'text-amber-600 font-mono text-xs font-black';
+            else calcRes.className = 'text-rose-600 font-mono text-xs font-black';
         }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialize Shift 1 by default or auto-detect current shift based on local hour
+        // Auto select current shift based on current hour
         const curHour = new Date().getHours();
         let defaultShift = '1';
-        if (curHour >= 16 && curHour < 24) {
-            defaultShift = '2';
-        } else if (curHour >= 0 && curHour < 8) {
-            defaultShift = '3';
-        }
+        if (curHour >= 16 && curHour < 24) defaultShift = '2';
+        else if (curHour >= 0 && curHour < 8) defaultShift = '3';
         setShiftInModal(defaultShift);
 
         const speedInput = document.getElementById('report_speed');
@@ -1029,11 +1559,11 @@
         document.getElementById('edit_downtime_minutes').value = rep.downtime_minutes || 0;
         document.getElementById('edit_downtime_reason').value = rep.downtime_reason || '';
         document.getElementById('edit_actions_taken').value = rep.actions_taken || '';
+        document.getElementById('edit_hour_slot').value = rep.hour_slot || '';
 
         const shiftSelect = document.getElementById('edit_shift');
         if (shiftSelect) {
             shiftSelect.value = rep.shift || '1';
-            populateEditHours(rep.shift || '1', rep.hour_slot);
         }
 
         const prodSelect = document.getElementById('edit_product_id');

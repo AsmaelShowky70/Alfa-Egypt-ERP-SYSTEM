@@ -47,6 +47,7 @@ Route::middleware('auth')->group(function () {
     // 2. Operations & Production Department
     Route::middleware('role:operations,maintenance,owner,gm')->prefix('operations')->name('operations.')->group(function () {
         Route::get('/hourly-reports', [OperationsController::class, 'hourlyReports'])->name('hourlyReports');
+        Route::get('/hourly-reports/export', [OperationsController::class, 'hourlyReports'])->name('hourlyReports.export');
         Route::post('/hourly-reports', [OperationsController::class, 'storeHourlyReport'])->name('hourlyReports.store');
         Route::put('/hourly-reports/{hourlyMachineReport}', [OperationsController::class, 'updateHourlyReport'])->name('hourlyReports.update');
         Route::post('/hourly-reports/{hourlyMachineReport}/update', [OperationsController::class, 'updateHourlyReport'])->name('hourlyReports.updatePost');

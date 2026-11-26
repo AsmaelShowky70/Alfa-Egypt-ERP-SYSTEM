@@ -360,6 +360,35 @@ class AlfaErpEndToEndTest extends TestCase
         $respShiftFilter->assertOk();
         $respShiftFilter->assertSee('الوردية الثانية');
 
+        // Test custom flexible shift and free custom hour slot
+        $reportCustomShift = [
+            'machine_id' => $machine->id,
+            'operator_name' => 'مشغل وردية إضافية مخصصة',
+            'report_date' => now()->toDateString(),
+            'shift' => 'custom',
+            'hour_slot' => '07:00 ص - 18:00 م',
+            'units_produced' => 4500,
+            'belt_speed_m_min' => 45.0,
+            'downtime_minutes' => 0,
+        ];
+        $this->actingAs($opsUser)->post('/operations/hourly-reports', $reportCustomShift)->assertRedirect();
+
+        // Verify multi-column filter: date range, zero downtime (بلانكة), analytics view and CSV export
+        $respDateFilter = $this->actingAs($opsUser)->get('/operations/hourly-reports?date_from='.now()->toDateString().'&date_to='.now()->toDateString());
+        $respDateFilter->assertOk();
+        $respDateFilter->assertSee('جدول السجلات المفصلة');
+
+        $respZeroFilter = $this->actingAs($opsUser)->get('/operations/hourly-reports?downtime_filter=zero');
+        $respZeroFilter->assertOk();
+
+        $respAnalytics = $this->actingAs($opsUser)->get('/operations/hourly-reports?view=analytics');
+        $respAnalytics->assertOk();
+        $respAnalytics->assertSee('كشف أداء الماكينات');
+
+        $respExport = $this->actingAs($opsUser)->get('/operations/hourly-reports?export=csv');
+        $respExport->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $respExport->headers->get('content-type'));
+
         // Step 6: Test Operations Material Requisitions & Confirming Receipt from Warehouse
         $respReqIndex = $this->actingAs($opsUser)->get('/operations/requisitions');
         $respReqIndex->assertOk();

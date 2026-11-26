@@ -70,6 +70,7 @@ class HourlyMachineReport extends Model
         return match ((string) ($this->shift ?? '1')) {
             '2' => 'الوردية الثانية (المسائية)',
             '3' => 'الوردية الثالثة (الليلية)',
+            'custom', '4' => 'وردية مخصصة / إضافية',
             default => 'الوردية الأولى (الصباحية)',
         };
     }
@@ -79,6 +80,7 @@ class HourlyMachineReport extends Model
         return match ((string) ($this->shift ?? '1')) {
             '2' => 'وردية 2',
             '3' => 'وردية 3',
+            'custom', '4' => 'وردية مخصصة',
             default => 'وردية 1',
         };
     }
@@ -88,6 +90,7 @@ class HourlyMachineReport extends Model
         return match ((string) ($this->shift ?? '1')) {
             '2' => 'bg-amber-100 text-amber-900 border-amber-300',
             '3' => 'bg-indigo-100 text-indigo-900 border-indigo-300',
+            'custom', '4' => 'bg-emerald-100 text-emerald-900 border-emerald-300',
             default => 'bg-blue-100 text-blue-900 border-blue-300',
         };
     }
