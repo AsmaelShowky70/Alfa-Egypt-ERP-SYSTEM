@@ -255,7 +255,11 @@ class SalesController extends Controller
         $totalCost = 0;
         $hasLossAlarm = false;
 
-        $orderNumber = 'SO-'.date('Y').'-'.str_pad((SalesOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+        $nextNum = (int) (SalesOrder::max('id') ?? 0) + 1;
+        do {
+            $orderNumber = 'SO-'.date('Y').'-'.str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+            $nextNum++;
+        } while (SalesOrder::where('order_number', $orderNumber)->exists());
 
         $order = SalesOrder::create([
             'order_number' => $orderNumber,
@@ -305,8 +309,8 @@ class SalesController extends Controller
             ]);
         }
 
-        $tax = $subtotal * 0.14; // 14% ضريبة القيمة المضافة إن وجدت
-        $totalAmount = $subtotal + $tax;
+        $tax = round($subtotal * 0.14, 2); // 14% ضريبة القيمة المضافة إن وجدت
+        $totalAmount = round($subtotal + $tax, 2);
         $margin = $totalAmount > 0 ? round((($subtotal - $totalCost) / $subtotal) * 100, 2) : 0;
 
         $order->update([
@@ -320,7 +324,7 @@ class SalesController extends Controller
 
         // Auto-post double-entry Sales Invoice into Financial Ledger
         $customer = Customer::find($order->customer_id);
-        $txnNumber = 'INV-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        $txnNumber = FinancialTransaction::generateTransactionNumber('INV');
         FinancialTransaction::create([
             'transaction_number' => $txnNumber,
             'type' => 'sales_invoice',

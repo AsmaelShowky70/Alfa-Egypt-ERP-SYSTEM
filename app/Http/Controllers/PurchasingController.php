@@ -158,7 +158,11 @@ class PurchasingController extends Controller
         $totalAmount = $subtotal + $markupAmount + $tax;
 
         $prefix = $isInternal ? 'PO-INT-' : 'PO-EXT-';
-        $poNumber = $prefix.date('Y').'-'.str_pad((PurchaseOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+        $nextPoNum = (int) (PurchaseOrder::max('id') ?? 0) + 1;
+        do {
+            $poNumber = $prefix.date('Y').'-'.str_pad($nextPoNum, 3, '0', STR_PAD_LEFT);
+            $nextPoNum++;
+        } while (PurchaseOrder::where('po_number', $poNumber)->exists());
 
         DB::beginTransaction();
         try {
@@ -200,7 +204,7 @@ class PurchasingController extends Controller
             // Auto-post double-entry into Financial Ledger
             if (! $isInternal && $po->supplier_id) {
                 $sup = Supplier::find($po->supplier_id);
-                $finTxnNumber = 'BILL-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+                $finTxnNumber = FinancialTransaction::generateTransactionNumber('BILL');
                 FinancialTransaction::create([
                     'transaction_number' => $finTxnNumber,
                     'type' => 'supplier_bill',
@@ -220,7 +224,7 @@ class PurchasingController extends Controller
                 ]);
             } elseif ($isInternal && $markupAmount > 0) {
                 $factory = Factory::find($po->from_factory_id);
-                $finTxnNumber = 'TR-14-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+                $finTxnNumber = FinancialTransaction::generateTransactionNumber('TR-14');
                 FinancialTransaction::create([
                     'transaction_number' => $finTxnNumber,
                     'type' => 'factory_internal_14_markup',

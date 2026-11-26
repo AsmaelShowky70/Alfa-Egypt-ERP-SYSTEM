@@ -74,6 +74,18 @@ class FinancialTransaction extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public static function generateTransactionNumber(string $prefix = 'FT'): string
+    {
+        $dateStr = date('Ymd');
+        $nextId = (int) (static::max('id') ?? 0) + 1;
+        do {
+            $num = $prefix.'-'.$dateStr.'-'.str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $nextId++;
+        } while (static::where('transaction_number', $num)->exists());
+
+        return $num;
+    }
+
     public function getTypeNameAttribute(): string
     {
         return match ($this->type) {

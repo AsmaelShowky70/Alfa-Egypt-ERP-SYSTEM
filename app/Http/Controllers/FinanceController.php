@@ -211,7 +211,7 @@ class FinanceController extends Controller
             $attachmentPath = 'uploads/receipts/'.$filename;
         }
 
-        $txnNumber = 'REC-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        $txnNumber = FinancialTransaction::generateTransactionNumber('REC');
 
         $debitAccount = match ($validated['payment_method']) {
             'شيك' => 'حـ/ أوراق قبض (شيكات تحت التحصيل)',
@@ -318,7 +318,7 @@ class FinanceController extends Controller
             $attachmentPath = 'uploads/receipts/'.$filename;
         }
 
-        $txnNumber = 'PAY-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        $txnNumber = FinancialTransaction::generateTransactionNumber('PAY');
 
         $creditAccount = match ($validated['payment_method']) {
             'شيك' => 'حـ/ أوراق دفع (شيكات صادرة للموردين)',
@@ -408,8 +408,8 @@ class FinanceController extends Controller
             $attachmentPath = 'uploads/receipts/'.$filename;
         }
 
-        $prefix = $validated['direction'] === 'inflow' ? 'TR-IN-' : 'TR-OUT-';
-        $txnNumber = $prefix.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        $prefix = $validated['direction'] === 'inflow' ? 'TR-IN' : 'TR-OUT';
+        $txnNumber = FinancialTransaction::generateTransactionNumber($prefix);
         $type = $validated['direction'] === 'inflow' ? 'customer_payment' : 'expense';
 
         FinancialTransaction::create([
@@ -491,7 +491,7 @@ class FinanceController extends Controller
             $attachmentPath = 'uploads/receipts/'.$filename;
         }
 
-        $txnNumber = 'EXP-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        $txnNumber = FinancialTransaction::generateTransactionNumber('EXP');
 
         $creditAccount = match ($validated['payment_method']) {
             'شيك' => 'حـ/ أوراق دفع (شيكات)',
@@ -560,7 +560,7 @@ class FinanceController extends Controller
             $attachmentPath = 'uploads/receipts/'.$filename;
         }
 
-        $txnNumber = 'JRN-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        $txnNumber = FinancialTransaction::generateTransactionNumber('JRN');
 
         FinancialTransaction::create([
             'transaction_number' => $txnNumber,
@@ -696,7 +696,7 @@ class FinanceController extends Controller
             $attachmentPath = 'uploads/receipts/'.$filename;
         }
 
-        $txnNumber = 'FT-'.date('Ymd').'-'.str_pad((FinancialTransaction::count() + 1), 4, '0', STR_PAD_LEFT);
+        $txnNumber = FinancialTransaction::generateTransactionNumber('FT');
 
         FinancialTransaction::create([
             'transaction_number' => $txnNumber,
