@@ -1,86 +1,434 @@
 @extends('layouts.app')
 
-@section('title', 'المواد الخام ومستلزمات الكوڤير')
+@section('title', 'المواد الخام ومستلزمات الكوڤير (المخزن المركزي)')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-6" x-data="{
+    showAddModal: false,
+    showEditModal: false,
+    showAdjustModal: false,
+    editItem: { id: '', name: '', category: '', unit: '', current_stock: 0, reorder_level: 0, unit_cost: 0, package_info: '', warehouse_location: '', supplier_id: '', source_factory_id: '' },
+    adjustItem: { id: '', name: '', unit: '', current_stock: 0, new_stock: 0, reason: '', notes: '' },
+    openEdit(item) {
+        this.editItem = { ...item };
+        this.showEditModal = true;
+    },
+    openAdjust(item) {
+        this.adjustItem = {
+            id: item.id,
+            name: item.name,
+            unit: item.unit,
+            current_stock: item.current_stock,
+            new_stock: item.current_stock,
+            reason: 'جرد فعلي للمخزن',
+            notes: ''
+        };
+        this.showAdjustModal = true;
+    }
+}">
 
+    <!-- Header Section -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-cubes-stacked text-amber-600"></i>
-                <span>المواد الخام ومستلزمات إنتاج الكوڤير (أسعار واقعية دقيقة)</span>
+                <span>المواد الخام ومستلزمات الإنتاج (المخزن المركزي)</span>
             </h1>
-            <p class="text-xs text-slate-500">معلقة إنجليزي 90 قرش، منديل بيور 24 قرش، خلة صيني 6 قروش، منديل معطر 28 قرش، غلاف شفاف 18 قرش</p>
+            <p class="text-xs text-slate-500 mt-1">إدارة دقيقة لأرصدة الرولات بالكيلو، مستلزمات الحقن، والورقيات بالبالة مع إمكانية الإضافة والتعديل والتسوية الجردية</p>
         </div>
         <div class="flex items-center gap-2">
-            <a href="{{ route('warehouse.vouchers.create') }}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+            <button @click="showAddModal = true" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i>
-                <span>إذن استلام خامات للمخزن</span>
+                <span>إضافة خامة جديدة</span>
+            </button>
+            <a href="{{ route('warehouse.vouchers.create') }}" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-receipt"></i>
+                <span>إذن استلام خامات</span>
             </a>
-            <a href="{{ route('warehouse.index') }}" class="text-xs font-bold text-slate-500 hover:text-slate-700">
+            <a href="{{ route('warehouse.index') }}" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-1">
                 ← رجوع للمخزن
             </a>
         </div>
     </div>
 
+    <!-- Filters Bar -->
+    <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+        <form method="GET" action="{{ route('warehouse.rawMaterials') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">بحث باسم أو كود الخامة أو الطرد</label>
+                <div class="relative">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="ابحث مثلاً: سيلوفان، معلقة، 116، كرتونة..." class="w-full text-xs rounded-xl border-slate-200 pr-8 focus:ring-amber-500 focus:border-amber-500">
+                    <i class="fa-solid fa-search absolute right-3 top-2.5 text-slate-400 text-xs"></i>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">تصنيف الخامة</label>
+                <select name="category" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    <option value="">-- كافة التصنيفات --</option>
+                    @foreach($categories as $cat)
+                        <option value="{{ $cat }}" {{ request('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">حالة المخزون</label>
+                <select name="filter" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    <option value="">-- كافة الأرصدة --</option>
+                    <option value="low_stock" {{ request('filter') == 'low_stock' ? 'selected' : '' }}>تحت حد الأمان (عجز)</option>
+                    <option value="zero_stock" {{ request('filter') == 'zero_stock' ? 'selected' : '' }}>رصيد صفري تماماً</option>
+                </select>
+            </div>
+
+            <div class="flex items-end gap-2">
+                <button type="submit" class="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-filter"></i>
+                    <span>تصفية الأصناف</span>
+                </button>
+                <a href="{{ route('warehouse.rawMaterials') }}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition">
+                    إلغاء
+                </a>
+            </div>
+        </form>
+    </div>
+
     <!-- Materials Table -->
     <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <span class="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                عرض {{ $materials->count() }} من أصل {{ $materials->total() }} خامة ومستلزم
+            </span>
+            <div class="text-xs text-slate-400">
+                إجمالي قيمة المخزون الحالي في الصفحة: 
+                <span class="font-bold text-slate-900">{{ number_format($materials->sum(fn($m) => $m->current_stock * $m->unit_cost), 2) }} ج.م</span>
+            </div>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="w-full text-right text-xs">
                 <thead>
                     <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                        <th class="py-3 px-4">كود الخامة</th>
-                        <th class="py-3 px-4">اسم الخامة والمستلزم</th>
-                        <th class="py-3 px-4">الوحدة</th>
-                        <th class="py-3 px-4">التكلفة الفعلية للقطعة</th>
-                        <th class="py-3 px-4">الرصيد المتاح بالمخزن</th>
-                        <th class="py-3 px-4">إجمالي القيمة المخزنية</th>
-                        <th class="py-3 px-4">حد الطلب الآمن</th>
-                        <th class="py-3 px-4">المورد / خط الإنتاج المصدر</th>
-                        <th class="py-3 px-4">الموقع</th>
+                        <th class="py-3 px-3">صورة الصنف</th>
+                        <th class="py-3 px-3">كود الخامة</th>
+                        <th class="py-3 px-3">اسم الخامة والمواصفات</th>
+                        <th class="py-3 px-3">التصنيف</th>
+                        <th class="py-3 px-3">الوحدة</th>
+                        <th class="py-3 px-3">تكلفة الوحدة</th>
+                        <th class="py-3 px-3">الرصيد المتاح</th>
+                        <th class="py-3 px-3">إجمالي القيمة</th>
+                        <th class="py-3 px-3">حد الأمان</th>
+                        <th class="py-3 px-3">الموقع</th>
+                        <th class="py-3 px-3 text-center">إجراءات المخزن</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
-                    @foreach($materials as $m)
-                        <tr class="hover:bg-slate-50 transition">
-                            <td class="py-3 px-4 font-mono font-bold text-slate-700">{{ $m->code }}</td>
-                            <td class="py-3 px-4 font-black text-slate-900 text-sm">{{ $m->name }}</td>
-                            <td class="py-3 px-4 text-slate-600">{{ $m->unit }}</td>
-                            <td class="py-3 px-4 font-black text-brand-700 text-sm">
+                    @forelse($materials as $m)
+                        @php
+                            $isZero = $m->current_stock <= 0;
+                            $isLow = $m->current_stock <= $m->reorder_level && !$isZero;
+                        @endphp
+                        <tr class="hover:bg-slate-50 transition {{ $isZero ? 'bg-rose-50/20' : ($isLow ? 'bg-amber-50/20' : '') }}">
+                            <td class="py-2.5 px-3">
+                                <img src="{{ $m->image_url }}" alt="{{ $m->name }}" class="w-12 h-12 object-cover rounded-xl border border-slate-200 bg-white shadow-sm" loading="lazy">
+                            </td>
+                            <td class="py-2.5 px-3 font-mono font-bold text-slate-700">{{ $m->code }}</td>
+                            <td class="py-2.5 px-3">
+                                <div class="font-black text-slate-900 text-sm">{{ $m->name }}</div>
+                                @if($m->package_info)
+                                    <div class="text-[11px] text-blue-700 font-medium mt-0.5 flex items-center gap-1">
+                                        <i class="fa-solid fa-boxes-packing text-blue-500"></i>
+                                        <span>{{ $m->package_info }}</span>
+                                    </div>
+                                @endif
+                            </td>
+                            <td class="py-2.5 px-3">
+                                <span class="inline-block px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700">
+                                    {{ $m->category }}
+                                </span>
+                            </td>
+                            <td class="py-2.5 px-3 text-slate-600 font-bold">{{ $m->unit }}</td>
+                            <td class="py-2.5 px-3 font-black text-brand-700">
                                 {{ number_format($m->unit_cost, 2) }} ج.م
                                 @if($m->unit_cost < 1)
-                                    <span class="text-[10px] text-slate-400 font-normal">({{ round($m->unit_cost * 100) }} قرش)</span>
+                                    <span class="text-[10px] text-slate-400 font-normal">({{ round($m->unit_cost * 100) }} ق)</span>
                                 @endif
                             </td>
-                            <td class="py-3 px-4 font-extrabold {{ $m->isLowStock() ? 'text-rose-600' : 'text-slate-900' }}">
-                                {{ number_format($m->current_stock) }} {{ $m->unit }}
-                                @if($m->isLowStock())
-                                    <span class="inline-block text-[10px] bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded mr-1">عجز</span>
+                            <td class="py-2.5 px-3 font-black {{ $isZero ? 'text-rose-600' : ($isLow ? 'text-amber-600' : 'text-slate-900') }}">
+                                <span class="text-sm">{{ number_format($m->current_stock, 2) }}</span>
+                                @if($isZero)
+                                    <span class="inline-block text-[9px] bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded mr-1">رصيد 0</span>
+                                @elseif($isLow)
+                                    <span class="inline-block text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded mr-1">عجز</span>
                                 @endif
                             </td>
-                            <td class="py-3 px-4 font-black text-slate-800">{{ number_format($m->current_stock * $m->unit_cost, 2) }} ج.م</td>
-                            <td class="py-3 px-4 text-slate-500">{{ number_format($m->reorder_level) }} {{ $m->unit }}</td>
-                            <td class="py-3 px-4">
-                                @if($m->sourceFactory)
-                                    <span class="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
-                                        {{ $m->sourceFactory->name }} (+14%)
-                                    </span>
-                                @elseif($m->supplier)
-                                    <span class="text-[11px] font-medium text-slate-700">{{ $m->supplier->name }}</span>
-                                @else
-                                    <span class="text-slate-400">مورد خارجي</span>
-                                @endif
+                            <td class="py-2.5 px-3 font-black text-slate-800">
+                                {{ number_format($m->current_stock * $m->unit_cost, 2) }} ج.م
                             </td>
-                            <td class="py-3 px-4 text-slate-500 font-medium">{{ $m->warehouse_location ?? 'عنبر عام' }}</td>
+                            <td class="py-2.5 px-3 text-slate-500 font-mono">{{ number_format($m->reorder_level) }} {{ $m->unit }}</td>
+                            <td class="py-2.5 px-3 text-slate-500 font-medium">{{ $m->warehouse_location ?? 'عنبر عام' }}</td>
+                            <td class="py-2.5 px-3 text-center">
+                                <div class="inline-flex items-center gap-1.5">
+                                    <button type="button" @click="openAdjust({{ json_encode($m) }})" title="تسوية رصيد جردي" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                                        <i class="fa-solid fa-scale-balanced"></i>
+                                        <span>تسوية</span>
+                                    </button>
+                                    <button type="button" @click="openEdit({{ json_encode($m) }})" title="تعديل بيانات الخامة" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                        <span>تعديل</span>
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="11" class="py-8 text-center text-slate-400">
+                                لا توجد خامات مطابقة للبحث أو التصفية الحالية.
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
 
         <div class="pt-4 border-t border-slate-100">
             {{ $materials->links() }}
+        </div>
+    </div>
+
+    <!-- MODAL 1: ADD RAW MATERIAL -->
+    <div x-show="showAddModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showAddModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-plus-circle text-amber-600"></i>
+                    <span>إضافة خامة / مستلزم جديد للمخزن</span>
+                </h3>
+                <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+
+            <form method="POST" action="{{ route('warehouse.rawMaterials.store') }}" enctype="multipart/form-data" class="space-y-4">
+                @csrf
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div class="sm:col-span-2">
+                        <label class="block font-bold text-slate-700 mb-1">اسم الخامة / المستلزم *</label>
+                        <input type="text" name="name" required placeholder="مثال: رول سيلوفان مطبوع أبو طارق، معلقة فيرساتشي أبيض..." class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">التصنيف *</label>
+                        <select name="category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                            <option value="رولات سيلوفان وبوليمرات">رولات سيلوفان وبوليمرات</option>
+                            <option value="مستلزمات حقن وبلاستيك">مستلزمات حقن وبلاستيك (معالق، شوك، سكاكين)</option>
+                            <option value="مناديل وورقيات">مناديل وورقيات (بالات، مناديل معطرة)</option>
+                            <option value="خامات بهارات ومواد غذائية">خامات بهارات ومواد غذائية (ملح، فلفل، كاتشب)</option>
+                            <option value="كراتين ومواد تغليف">كراتين ومواد تغليف</option>
+                            <option value="مستلزمات نظافة وضيافة">مستلزمات نظافة وضيافة (جوانتيات، صابون)</option>
+                            <option value="قطع غيار ماكينات">قطع غيار ماكينات</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">وحدة القياس والصرف *</label>
+                        <select name="unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                            <option value="كجم">كجم (للرولات والخامات بالكيلو)</option>
+                            <option value="قطعة">قطعة (للمعالق والشوك)</option>
+                            <option value="بالة">بالة (للمناديل الورقية)</option>
+                            <option value="كرتونة">كرتونة</option>
+                            <option value="رول">رول</option>
+                            <option value="لتر">لتر</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">الرصيد الفعلي الافتتاحي *</label>
+                        <input type="number" step="0.01" min="0" name="current_stock" value="0" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">حد الطلب الآمن (Reorder Level) *</label>
+                        <input type="number" step="0.01" min="0" name="reorder_level" value="10" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">التكلفة الفعلية للوحدة (ج.م) *</label>
+                        <input type="number" step="0.001" min="0" name="unit_cost" value="0.00" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">مكان التخزين بالمخزن</label>
+                        <input type="text" name="warehouse_location" placeholder="مثال: عنبر الرولات - رصيف 2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block font-bold text-slate-700 mb-1">مواصفات التعبئة والوزن الفعلي (Package Specs)</label>
+                        <input type="text" name="package_info" placeholder="مثال: وزن الرول 116.1 كجم / 153 كرتونة × 1000 قطعة" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">المورد المعتمد</label>
+                        <select name="supplier_id" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                            <option value="">-- بدون مورد محدد --</option>
+                            @foreach($suppliers as $sup)
+                                <option value="{{ $sup->id }}">{{ $sup->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">صورة الصنف الفعلية</label>
+                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button type="button" @click="showAddModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-save"></i>
+                        <span>حفظ وإضافة للمخزن</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: EDIT RAW MATERIAL -->
+    <div x-show="showEditModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showEditModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-amber-600"></i>
+                    <span>تعديل بيانات الخامة: <span class="text-amber-700" x-text="editItem.name"></span></span>
+                </h3>
+                <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+
+            <form :action="'{{ url('warehouse/raw-materials') }}/' + editItem.id" method="POST" enctype="multipart/form-data" class="space-y-4">
+                @csrf
+                @method('PUT')
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div class="sm:col-span-2">
+                        <label class="block font-bold text-slate-700 mb-1">اسم الخامة *</label>
+                        <input type="text" name="name" x-model="editItem.name" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">التصنيف *</label>
+                        <input type="text" name="category" x-model="editItem.category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">الوحدة *</label>
+                        <input type="text" name="unit" x-model="editItem.unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">الرصيد الحالي بالمخزن *</label>
+                        <input type="number" step="0.01" min="0" name="current_stock" x-model="editItem.current_stock" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">حد الطلب الآمن *</label>
+                        <input type="number" step="0.01" min="0" name="reorder_level" x-model="editItem.reorder_level" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">تكلفة الوحدة (ج.م) *</label>
+                        <input type="number" step="0.001" min="0" name="unit_cost" x-model="editItem.unit_cost" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">الموقع بالمخزن</label>
+                        <input type="text" name="warehouse_location" x-model="editItem.warehouse_location" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block font-bold text-slate-700 mb-1">مواصفات التعبئة والوزن (Package Info)</label>
+                        <input type="text" name="package_info" x-model="editItem.package_info" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block font-bold text-slate-700 mb-1">تحديث صورة الصنف (اختياري)</label>
+                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button type="button" @click="showEditModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-check"></i>
+                        <span>حفظ التعديلات</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: FAST STOCK ADJUSTMENT -->
+    <div x-show="showAdjustModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showAdjustModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-scale-balanced text-blue-600"></i>
+                    <span>تسوية رصيد جردي للصنف</span>
+                </h3>
+                <button @click="showAdjustModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+
+            <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4">
+                @csrf
+                <input type="hidden" name="item_type" value="raw_material">
+                <input type="hidden" name="item_id" :value="adjustItem.id">
+
+                <div class="bg-blue-50/60 p-3 rounded-2xl border border-blue-100 space-y-1 text-xs">
+                    <div class="font-bold text-blue-900 text-sm" x-text="adjustItem.name"></div>
+                    <div class="text-blue-700">
+                        الرصيد الدفتري الحالي: 
+                        <span class="font-black text-sm" x-text="adjustItem.current_stock"></span> 
+                        <span x-text="adjustItem.unit"></span>
+                    </div>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">الرصيد الفعلي الجديد بعد الجرد *</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" step="0.01" min="0" name="new_stock" x-model="adjustItem.new_stock" required class="flex-1 text-sm font-black rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500">
+                            <span class="font-bold text-slate-600" x-text="adjustItem.unit"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">سبب التسوية الجردية *</label>
+                        <select name="reason" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="جرد فعلي دوري ومطابقة المخزن">جرد فعلي دوري ومطابقة المخزن</option>
+                            <option value="إضافة رصيد مرحل سابق لم يقيد">إضافة رصيد مرحل سابق لم يقيد</option>
+                            <option value="تسوية هالك أو تالف تشغيل">تسوية هالك أو تالف تشغيل</option>
+                            <option value="تصحيح خطأ دفتري في إذن صرف">تصحيح خطأ دفتري في إذن صرف</option>
+                            <option value="أخرى">أخرى (مذكورة بالملاحظات)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">ملاحظات إضافية</label>
+                        <textarea name="notes" rows="2" placeholder="اكتب تفاصيل الفارق أو رقم محضر الجرد..." class="w-full text-xs rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button type="button" @click="showAdjustModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>اعتماد التسوية وتحديث الرصيد</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

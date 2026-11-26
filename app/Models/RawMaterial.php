@@ -22,6 +22,8 @@ class RawMaterial extends Model
         'warehouse_location',
         'supplier_id',
         'source_factory_id',
+        'image',
+        'package_info',
         'status',
     ];
 
@@ -50,5 +52,14 @@ class RawMaterial extends Model
     public function isLowStock(): bool
     {
         return $this->current_stock <= $this->reorder_level;
+    }
+
+    public function getImageUrlAttribute(): string
+    {
+        if ($this->image && file_exists(public_path($this->image))) {
+            return asset($this->image);
+        }
+
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=f59e0b&color=fff&size=256';
     }
 }

@@ -62,6 +62,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/requisitions', [OperationsController::class, 'requisitions'])->name('requisitions');
         Route::post('/requisitions', [OperationsController::class, 'storeRequisition'])->name('requisitions.store');
         Route::post('/requisitions/{materialRequisition}/confirm-receipt', [OperationsController::class, 'confirmReceipt'])->name('requisitions.confirmReceipt');
+
+        // Operations Read-Only Warehouse Stock View (رؤية أرصدة الخامات والمخازن بدون تعديل)
+        Route::get('/warehouse-stock', [OperationsController::class, 'warehouseStock'])->name('warehouseStock');
     });
 
     // 3. Central Warehouse Department
@@ -72,7 +75,16 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:warehouse,owner,gm')->prefix('warehouse')->name('warehouse.')->group(function () {
         Route::get('/', [WarehouseController::class, 'index'])->name('index');
         Route::get('/raw-materials', [WarehouseController::class, 'rawMaterials'])->name('rawMaterials');
+        Route::post('/raw-materials', [WarehouseController::class, 'storeRawMaterial'])->name('rawMaterials.store');
+        Route::put('/raw-materials/{rawMaterial}', [WarehouseController::class, 'updateRawMaterial'])->name('rawMaterials.update');
+        Route::delete('/raw-materials/{rawMaterial}', [WarehouseController::class, 'destroyRawMaterial'])->name('rawMaterials.destroy');
+
         Route::get('/finished-goods', [WarehouseController::class, 'finishedGoods'])->name('finishedGoods');
+        Route::post('/finished-goods', [WarehouseController::class, 'storeFinishedGood'])->name('finishedGoods.store');
+        Route::put('/finished-goods/{product}', [WarehouseController::class, 'updateFinishedGood'])->name('finishedGoods.update');
+
+        Route::post('/adjust-stock', [WarehouseController::class, 'adjustStock'])->name('adjustStock');
+        Route::post('/dispatch-sale', [WarehouseController::class, 'dispatchSale'])->name('dispatchSale');
 
         Route::get('/material-requisitions', [WarehouseController::class, 'materialRequisitions'])->name('materialRequisitions');
         Route::get('/material-requisitions/{materialRequisition}', [WarehouseController::class, 'showMaterialRequisition'])->name('materialRequisitions.show');
@@ -102,6 +114,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:purchasing,owner,gm')->prefix('purchasing')->name('purchasing.')->group(function () {
         Route::get('/', [PurchasingController::class, 'index'])->name('index');
         Route::get('/requisitions', [PurchasingController::class, 'requisitions'])->name('requisitions');
+        Route::get('/warehouse-shortages', [PurchasingController::class, 'warehouseShortages'])->name('warehouseShortages');
         Route::get('/requisitions/{purchaseRequisition}', [PurchasingController::class, 'showRequisition'])->name('requisitions.show');
         Route::post('/requisitions/{purchaseRequisition}/lead-time', [PurchasingController::class, 'quoteLeadTime'])->name('requisitions.leadTime');
 

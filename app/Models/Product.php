@@ -25,6 +25,7 @@ class Product extends Model
         'current_stock',
         'reorder_level',
         'image',
+        'package_info',
         'description',
         'status',
     ];

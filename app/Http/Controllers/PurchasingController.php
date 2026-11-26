@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Factory;
 use App\Models\FinancialTransaction;
+use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseRequisition;
@@ -50,6 +51,63 @@ class PurchasingController extends Controller
             ->paginate(15);
 
         return view('purchasing.requisitions.index', compact('requisitions'));
+    }
+
+    /**
+     * View Warehouse Shortages & Reorder Alerts for Purchasing Department
+     * شاشة نواقص المخازن وتنبيهات إعادة الطلب لقسم المشتريات
+     */
+    public function warehouseShortages(Request $request): View
+    {
+        $materialQuery = RawMaterial::with('supplier')
+            ->where(function ($q) {
+                $q->whereColumn('current_stock', '<=', 'reorder_level')
+                    ->orWhere('current_stock', '<=', 0);
+            })
+            ->where('status', true);
+
+        if ($request->filled('category')) {
+            $materialQuery->where('category', $request->category);
+        }
+
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $materialQuery->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                    ->orWhere('code', 'like', "%{$s}%");
+            });
+        }
+
+        $shortageMaterials = $materialQuery->orderBy('current_stock', 'asc')->get();
+
+        $productQuery = Product::with('customer')
+            ->where(function ($q) {
+                $q->whereColumn('current_stock', '<=', 'reorder_level')
+                    ->orWhere('current_stock', '<=', 0);
+            })
+            ->where('status', true);
+
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $productQuery->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                    ->orWhere('code', 'like', "%{$s}%");
+            });
+        }
+
+        $shortageProducts = $productQuery->orderBy('current_stock', 'asc')->get();
+
+        $categories = RawMaterial::distinct()->pluck('category')->filter();
+        $totalShortagesCount = $shortageMaterials->count() + $shortageProducts->count();
+        $suppliers = Supplier::where('status', true)->get();
+
+        return view('purchasing.warehouse_shortages', compact(
+            'shortageMaterials',
+            'shortageProducts',
+            'totalShortagesCount',
+            'categories',
+            'suppliers'
+        ));
     }
 
     public function showRequisition(PurchaseRequisition $purchaseRequisition): View

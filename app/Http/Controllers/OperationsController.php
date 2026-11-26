@@ -940,4 +940,62 @@ class OperationsController extends Controller
 
         return back()->with('success', 'تم تأكيد استلام الخامات على خط الإنتاج بالمصنع بنجاح ('.$materialRequisition->req_number.') وبدء الجاهزية للتشغيل.');
     }
+
+    /**
+     * Operations Read-Only Warehouse Stock View (رؤية أرصدة الخامات والمخازن بدون تعديل)
+     */
+    public function warehouseStock(Request $request): View
+    {
+        $query = RawMaterial::where('status', true);
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                    ->orWhere('code', 'like', "%{$s}%")
+                    ->orWhere('package_info', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->get('stock_filter') === 'available') {
+            $query->where('current_stock', '>', 0);
+        } elseif ($request->get('stock_filter') === 'zero') {
+            $query->where('current_stock', '<=', 0);
+        } elseif ($request->get('stock_filter') === 'low') {
+            $query->whereColumn('current_stock', '<=', 'reorder_level');
+        }
+
+        $rawMaterials = $query->orderBy('name')->paginate(30)->withQueryString();
+
+        $finishedGoodsQuery = Product::with('customer')->where('status', true);
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $finishedGoodsQuery->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                    ->orWhere('code', 'like', "%{$s}%")
+                    ->orWhere('package_info', 'like', "%{$s}%");
+            });
+        }
+        $finishedGoods = $finishedGoodsQuery->orderBy('name')->get();
+
+        $categories = RawMaterial::where('status', true)->distinct()->pluck('category')->filter();
+        $totalRawMaterialsCount = RawMaterial::where('status', true)->count();
+        $totalStockValue = RawMaterial::where('status', true)->selectRaw('SUM(current_stock * unit_cost) as total')->value('total') ?? 0;
+        $activeProductionOrders = ProductionOrder::with('salesOrder.customer')
+            ->whereIn('status', ['scheduled', 'in_progress', 'ready'])
+            ->get();
+
+        return view('operations.warehouse_stock', compact(
+            'rawMaterials',
+            'finishedGoods',
+            'categories',
+            'totalRawMaterialsCount',
+            'totalStockValue',
+            'activeProductionOrders'
+        ));
+    }
 }

@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\DailyInventoryCheck;
 use App\Models\DailyInventoryCheckItem;
 use App\Models\Factory;
+use App\Models\FinancialTransaction;
 use App\Models\MaterialRequisition;
 use App\Models\Product;
 use App\Models\PurchaseRequisition;
@@ -20,6 +21,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class WarehouseController extends Controller
@@ -59,19 +61,461 @@ class WarehouseController extends Controller
     }
 
     // ================= INVENTORY LISTS =================
-    public function rawMaterials(): View
+    public function rawMaterials(Request $request): View
     {
-        $materials = RawMaterial::with(['supplier', 'sourceFactory'])->latest()->paginate(20);
-        $suppliers = Supplier::where('status', true)->get();
+        $query = RawMaterial::with(['supplier', 'sourceFactory'])->where('status', true);
 
-        return view('warehouse.raw_materials', compact('materials', 'suppliers'));
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                    ->orWhere('code', 'like', "%{$s}%")
+                    ->orWhere('package_info', 'like', "%{$s}%")
+                    ->orWhere('warehouse_location', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('filter')) {
+            if ($request->filter === 'low_stock') {
+                $query->where(function ($q) {
+                    $q->whereColumn('current_stock', '<=', 'reorder_level')
+                        ->orWhere('current_stock', 0);
+                });
+            } elseif ($request->filter === 'zero_stock') {
+                $query->where('current_stock', 0);
+            }
+        }
+
+        $materials = $query->latest('id')->paginate(20)->withQueryString();
+        $categories = RawMaterial::distinct()->pluck('category')->filter()->values();
+        $suppliers = Supplier::where('status', true)->get();
+        $factories = Factory::all();
+
+        return view('warehouse.raw_materials', compact('materials', 'categories', 'suppliers', 'factories'));
     }
 
-    public function finishedGoods(): View
+    public function storeRawMaterial(Request $request): RedirectResponse
     {
-        $products = Product::with(['customer', 'factory', 'boms.rawMaterial'])->latest()->paginate(20);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string|max:100',
+            'unit' => 'required|string|max:50',
+            'current_stock' => 'required|numeric|min:0',
+            'reorder_level' => 'required|numeric|min:0',
+            'unit_cost' => 'required|numeric|min:0',
+            'package_info' => 'nullable|string|max:255',
+            'warehouse_location' => 'nullable|string|max:100',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'source_factory_id' => 'nullable|exists:factories,id',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
 
-        return view('warehouse.finished_goods', compact('products'));
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = 'rm_'.time().'_'.Str::random(6).'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/raw_materials'), $filename);
+            $imagePath = 'uploads/raw_materials/'.$filename;
+        }
+
+        $nextId = (int) (RawMaterial::max('id') ?? 0) + 1;
+        do {
+            $code = 'RM-'.str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $nextId++;
+        } while (RawMaterial::where('code', $code)->exists());
+
+        $material = RawMaterial::create([
+            'code' => $code,
+            'name' => $validated['name'],
+            'category' => $validated['category'],
+            'unit' => $validated['unit'],
+            'current_stock' => $validated['current_stock'],
+            'reorder_level' => $validated['reorder_level'],
+            'unit_cost' => $validated['unit_cost'],
+            'package_info' => $validated['package_info'] ?? null,
+            'warehouse_location' => $validated['warehouse_location'] ?? 'عنبر المخزن الرئيسي',
+            'supplier_id' => $validated['supplier_id'] ?? null,
+            'source_factory_id' => $validated['source_factory_id'] ?? null,
+            'image' => $imagePath,
+            'status' => true,
+        ]);
+
+        if ((float) $validated['current_stock'] > 0) {
+            $voucherNum = 'VOUCH-IN-'.date('Ymd').'-'.rand(100, 999);
+            $voucher = StockMovement::create([
+                'voucher_number' => $voucherNum,
+                'type' => 'receipt_supplier',
+                'reference_type' => 'initial_stock',
+                'reference_id' => $material->id,
+                'warehouse_manager_id' => Auth::id(),
+                'voucher_date' => Carbon::now()->toDateString(),
+                'total_value' => (float) $validated['current_stock'] * (float) $validated['unit_cost'],
+                'received_or_delivered_by' => Auth::user()->name,
+                'notes' => 'تسجيل رصيد افتتاحي أولي للخامة الجديدة '.$material->name,
+            ]);
+
+            StockMovementItem::create([
+                'stock_movement_id' => $voucher->id,
+                'item_type' => 'raw_material',
+                'item_id' => $material->id,
+                'item_name' => $material->name,
+                'unit' => $material->unit,
+                'quantity' => $validated['current_stock'],
+                'unit_cost' => $validated['unit_cost'],
+                'total_cost' => (float) $validated['current_stock'] * (float) $validated['unit_cost'],
+                'notes' => 'رصيد افتتاحي',
+            ]);
+        }
+
+        return back()->with('success', 'تمت إضافة مادة الخام كصنف جديد بالمخزن بكود ('.$code.') بنجاح.');
+    }
+
+    public function updateRawMaterial(Request $request, RawMaterial $rawMaterial): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string|max:100',
+            'unit' => 'required|string|max:50',
+            'current_stock' => 'required|numeric|min:0',
+            'reorder_level' => 'required|numeric|min:0',
+            'unit_cost' => 'required|numeric|min:0',
+            'package_info' => 'nullable|string|max:255',
+            'warehouse_location' => 'nullable|string|max:100',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'source_factory_id' => 'nullable|exists:factories,id',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $imagePath = $rawMaterial->image;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = 'rm_'.time().'_'.Str::random(6).'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/raw_materials'), $filename);
+            $imagePath = 'uploads/raw_materials/'.$filename;
+        }
+
+        $rawMaterial->update([
+            'name' => $validated['name'],
+            'category' => $validated['category'],
+            'unit' => $validated['unit'],
+            'current_stock' => $validated['current_stock'],
+            'reorder_level' => $validated['reorder_level'],
+            'unit_cost' => $validated['unit_cost'],
+            'package_info' => $validated['package_info'] ?? $rawMaterial->package_info,
+            'warehouse_location' => $validated['warehouse_location'] ?? $rawMaterial->warehouse_location,
+            'supplier_id' => $validated['supplier_id'] ?? $rawMaterial->supplier_id,
+            'source_factory_id' => $validated['source_factory_id'] ?? $rawMaterial->source_factory_id,
+            'image' => $imagePath,
+        ]);
+
+        return back()->with('success', 'تم تحديث بيانات ومواصفات ورصيد الخامة ('.$rawMaterial->name.') بنجاح.');
+    }
+
+    public function destroyRawMaterial(RawMaterial $rawMaterial): RedirectResponse
+    {
+        $rawMaterial->update(['status' => false]);
+
+        return back()->with('success', 'تم إلغاء تفعيل الخامة من سجلات المخزن.');
+    }
+
+    public function finishedGoods(Request $request): View
+    {
+        $query = Product::with(['customer', 'factory', 'boms.rawMaterial'])->where('status', true);
+
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                    ->orWhere('code', 'like', "%{$s}%")
+                    ->orWhere('package_info', 'like', "%{$s}%");
+            });
+        }
+
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->customer_id);
+        }
+
+        if ($request->filled('filter')) {
+            if ($request->filter === 'low_stock') {
+                $query->where(function ($q) {
+                    $q->whereColumn('current_stock', '<=', 'reorder_level')
+                        ->orWhere('current_stock', 0);
+                });
+            } elseif ($request->filter === 'zero_stock') {
+                $query->where('current_stock', 0);
+            }
+        }
+
+        $products = $query->latest('id')->paginate(20)->withQueryString();
+        $customers = Customer::where('status', true)->get();
+        $factories = Factory::all();
+
+        return view('warehouse.finished_goods', compact('products', 'customers', 'factories'));
+    }
+
+    public function storeFinishedGood(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string|max:100',
+            'unit' => 'required|string|max:50',
+            'customer_id' => 'nullable|exists:customers,id',
+            'cost_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+            'current_stock' => 'required|numeric|min:0',
+            'reorder_level' => 'required|numeric|min:0',
+            'package_info' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = 'prod_'.time().'_'.Str::random(6).'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/products'), $filename);
+            $imagePath = 'uploads/products/'.$filename;
+        }
+
+        $nextId = (int) (Product::max('id') ?? 0) + 1;
+        do {
+            $code = 'PROD-'.str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $nextId++;
+        } while (Product::where('code', $code)->exists());
+
+        Product::create([
+            'code' => $code,
+            'name' => $validated['name'],
+            'category' => $validated['category'],
+            'type' => 'finished_good',
+            'unit' => $validated['unit'],
+            'customer_id' => $validated['customer_id'] ?? null,
+            'cost_price' => $validated['cost_price'],
+            'selling_price' => $validated['selling_price'],
+            'min_selling_price' => $validated['cost_price'] * 1.10,
+            'current_stock' => $validated['current_stock'],
+            'reorder_level' => $validated['reorder_level'],
+            'package_info' => $validated['package_info'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'image' => $imagePath,
+            'status' => true,
+        ]);
+
+        return back()->with('success', 'تمت إضافة المنتج التام ('.$validated['name'].') للمخزن بكود ('.$code.') بنجاح.');
+    }
+
+    public function updateFinishedGood(Request $request, Product $product): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string|max:100',
+            'unit' => 'required|string|max:50',
+            'customer_id' => 'nullable|exists:customers,id',
+            'cost_price' => 'required|numeric|min:0',
+            'selling_price' => 'required|numeric|min:0',
+            'current_stock' => 'required|numeric|min:0',
+            'reorder_level' => 'required|numeric|min:0',
+            'package_info' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $imagePath = $product->image;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = 'prod_'.time().'_'.Str::random(6).'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/products'), $filename);
+            $imagePath = 'uploads/products/'.$filename;
+        }
+
+        $product->update([
+            'name' => $validated['name'],
+            'category' => $validated['category'],
+            'unit' => $validated['unit'],
+            'customer_id' => $validated['customer_id'] ?? $product->customer_id,
+            'cost_price' => $validated['cost_price'],
+            'selling_price' => $validated['selling_price'],
+            'min_selling_price' => $validated['cost_price'] * 1.10,
+            'current_stock' => $validated['current_stock'],
+            'reorder_level' => $validated['reorder_level'],
+            'package_info' => $validated['package_info'] ?? $product->package_info,
+            'description' => $validated['description'] ?? $product->description,
+            'image' => $imagePath,
+        ]);
+
+        return back()->with('success', 'تم تحديث بيانات ورصيد وسعر المنتج ('.$product->name.') بنجاح.');
+    }
+
+    /**
+     * Fast Stock Adjustment (تسوية رصيد جرد ومخزون)
+     */
+    public function adjustStock(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'item_type' => 'required|in:raw_material,product',
+            'item_id' => 'required|integer',
+            'adjustment_type' => 'nullable|in:add,deduct,set',
+            'quantity' => 'nullable|numeric|min:0.01',
+            'new_stock' => 'nullable|numeric|min:0',
+            'reason' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $item = $validated['item_type'] === 'raw_material'
+            ? RawMaterial::findOrFail($validated['item_id'])
+            : Product::findOrFail($validated['item_id']);
+
+        $oldStock = (float) $item->current_stock;
+
+        if ($request->filled('new_stock')) {
+            $newStock = (float) $request->new_stock;
+        } else {
+            $qty = (float) ($validated['quantity'] ?? 0);
+            $newStock = match ($validated['adjustment_type'] ?? 'set') {
+                'add' => $oldStock + $qty,
+                'deduct' => max(0, $oldStock - $qty),
+                'set' => $qty,
+            };
+        }
+
+        $item->update(['current_stock' => $newStock]);
+
+        $voucherNum = 'VOUCH-ADJ-'.date('Ymd').'-'.rand(100, 999);
+        $diff = abs($newStock - $oldStock);
+        $cost = $validated['item_type'] === 'raw_material' ? (float) $item->unit_cost : (float) $item->cost_price;
+
+        $voucher = StockMovement::create([
+            'voucher_number' => $voucherNum,
+            'type' => 'adjustment',
+            'reference_type' => 'inventory_adjustment',
+            'reference_id' => $item->id,
+            'warehouse_manager_id' => Auth::id(),
+            'voucher_date' => Carbon::now()->toDateString(),
+            'total_value' => $diff * $cost,
+            'received_or_delivered_by' => Auth::user()->name,
+            'notes' => 'تسوية جردية لصنف '.$item->name.' ('.$validated['reason'].') - الرصيد السابق: '.$oldStock.' أصبح: '.$newStock,
+        ]);
+
+        StockMovementItem::create([
+            'stock_movement_id' => $voucher->id,
+            'item_type' => $validated['item_type'],
+            'item_id' => $item->id,
+            'item_name' => $item->name,
+            'unit' => $item->unit,
+            'quantity' => $diff,
+            'unit_cost' => $cost,
+            'total_cost' => $diff * $cost,
+            'notes' => $validated['reason'],
+        ]);
+
+        return back()->with('success', 'تمت تسوية رصيد الصنف ('.$item->name.') بنجاح. الرصيد الحالي: '.number_format($newStock, 2).' '.$item->unit);
+    }
+
+    /**
+     * Direct Sale & Dispatch from Warehouse (بيع وصرف منتج تام من المخزن)
+     */
+    public function dispatchSale(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|numeric|min:1',
+            'unit_price' => 'required|numeric|min:0',
+            'dispatch_date' => 'required|date',
+            'payment_type' => 'required|in:credit,cash',
+            'received_by' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $product = Product::findOrFail($validated['product_id']);
+        $customer = Customer::findOrFail($validated['customer_id']);
+        $qty = (float) $validated['quantity'];
+        $unitPrice = (float) $validated['unit_price'];
+
+        if ($product->current_stock < $qty) {
+            return back()->with('error', 'عفواً، الكمية المطلوبة ('.number_format($qty).') أكبر من الرصيد المتوفر حالياً بالمخزن ('.number_format($product->current_stock).' '.$product->unit.').');
+        }
+
+        DB::beginTransaction();
+        try {
+            $product->current_stock -= $qty;
+            $product->save();
+
+            $subtotal = $qty * $unitPrice;
+            $voucherNum = 'VOUCH-DISP-'.date('Ymd').'-'.rand(100, 999);
+
+            $voucher = StockMovement::create([
+                'voucher_number' => $voucherNum,
+                'type' => 'delivery_customer',
+                'reference_type' => 'customer_direct_sale',
+                'reference_id' => $customer->id,
+                'warehouse_manager_id' => Auth::id(),
+                'voucher_date' => $validated['dispatch_date'],
+                'total_value' => $subtotal,
+                'received_or_delivered_by' => $validated['received_by'],
+                'notes' => 'إذن صرف وتسليم بضاعة مباعة للعميل '.$customer->name.' ('.($validated['notes'] ?? '').')',
+            ]);
+
+            StockMovementItem::create([
+                'stock_movement_id' => $voucher->id,
+                'item_type' => 'product',
+                'item_id' => $product->id,
+                'item_name' => $product->name,
+                'unit' => $product->unit,
+                'quantity' => $qty,
+                'unit_cost' => $product->cost_price,
+                'total_cost' => $qty * (float) $product->cost_price,
+                'notes' => 'صرف مباشر للعميل '.$customer->name,
+            ]);
+
+            if ($validated['payment_type'] === 'cash') {
+                $finTxnNumber = FinancialTransaction::generateTransactionNumber('REC');
+                FinancialTransaction::create([
+                    'transaction_number' => $finTxnNumber,
+                    'type' => 'customer_payment',
+                    'category' => 'مبيعات نقدية فورية من المخزن',
+                    'amount' => $subtotal,
+                    'transaction_date' => $validated['dispatch_date'],
+                    'payment_method' => 'نقدي',
+                    'customer_id' => $customer->id,
+                    'debit_account' => 'حـ/ الخزينة الرئيسية',
+                    'credit_account' => 'حـ/ إيرادات مبيعات المخزن المركزي',
+                    'description' => 'تحصيل نقدي فوري عن إذن بيع من المخزن رقم '.$voucherNum.' للعميل '.$customer->name,
+                    'status' => 'posted',
+                    'created_by' => Auth::id(),
+                ]);
+            } else {
+                $finTxnNumber = FinancialTransaction::generateTransactionNumber('INV');
+                FinancialTransaction::create([
+                    'transaction_number' => $finTxnNumber,
+                    'type' => 'sales_invoice',
+                    'category' => 'مبيعات آجلة من المخزن',
+                    'amount' => $subtotal,
+                    'net_amount' => $subtotal,
+                    'transaction_date' => $validated['dispatch_date'],
+                    'payment_method' => 'آجل',
+                    'customer_id' => $customer->id,
+                    'debit_account' => 'حـ/ العملاء - '.$customer->name,
+                    'credit_account' => 'حـ/ إيرادات مبيعات المخزن المركزي',
+                    'description' => 'فاتورة مبيعات عن إذن تسليم بضاعة من المخزن رقم '.$voucherNum,
+                    'status' => 'posted',
+                    'created_by' => Auth::id(),
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('warehouse.vouchers.show', $voucher->id)
+                ->with('success', 'تم إصدار إذن صرف وتسليم البضاعة المباعة للعميل ('.$customer->name.') بنجاح وخصم الرصيد من المخزن وترحيل المعاملة المالية.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->with('error', 'حدث خطأ أثناء الصرف: '.$e->getMessage());
+        }
     }
 
     public function spareParts(): View

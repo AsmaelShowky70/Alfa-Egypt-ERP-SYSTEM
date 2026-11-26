@@ -278,6 +278,10 @@
                         <i class="fa-solid fa-clock-rotate-left text-blue-600"></i>
                         <span>تقارير الماكينات كل ساعة</span>
                     </a>
+                    <a href="{{ route('operations.warehouseStock') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('operations.warehouseStock*') ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-boxes-stacked text-blue-600"></i>
+                        <span>أرصدة المخازن (عرض لحظي)</span>
+                    </a>
                 </div>
                 @endif
 
@@ -339,6 +343,22 @@
                         <span>المشتريات وسلاسل الإمداد</span>
                         <i class="fa-solid fa-cart-flatbed text-purple-500"></i>
                     </div>
+                    <a href="{{ route('purchasing.warehouseShortages') }}" class="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('purchasing.warehouseShortages*') ? 'bg-purple-50 text-purple-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <div class="flex items-center gap-3">
+                            <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
+                            <span>نواقص المخازن وتنبيهات الطلب</span>
+                        </div>
+                        @php
+                            $shortageAlerts = \App\Models\RawMaterial::where('status', true)->where(function($q) {
+                                $q->whereColumn('current_stock', '<=', 'reorder_level')->orWhere('current_stock', '<=', 0);
+                            })->count();
+                        @endphp
+                        @if($shortageAlerts > 0)
+                            <span class="text-xs bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded-full">
+                                {{ $shortageAlerts }}
+                            </span>
+                        @endif
+                    </a>
                     <a href="{{ route('purchasing.requisitions') }}" class="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('purchasing.requisitions*') ? 'bg-purple-50 text-purple-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
                         <div class="flex items-center gap-3">
                             <i class="fa-solid fa-bell-concierge text-purple-600"></i>
