@@ -289,11 +289,11 @@
     </div>
 
     <!-- MODAL: IMAGE ZOOM LIGHTBOX -->
-    <div x-show="showZoomModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div x-show="showZoomModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
         <div @click.away="showZoomModal = false" class="bg-white rounded-3xl max-w-xl w-full p-4 shadow-2xl space-y-3 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h3 class="font-black text-slate-900 text-sm" x-text="zoomTitle"></h3>
-                <button @click="showZoomModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+                <button @click="showZoomModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
             </div>
             <div class="bg-slate-50 p-2 rounded-2xl flex items-center justify-center">
                 <img :src="zoomImage" :alt="zoomTitle" class="max-h-[70vh] rounded-xl object-contain shadow-sm">
@@ -304,7 +304,7 @@
 
     <!-- MODAL: TOP MANAGEMENT PRICING (دكتور عزت وم. بولا) -->
     @if(Auth::user()->isOwner() || Auth::user()->isGM())
-    <div x-show="showPricingModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div x-show="showPricingModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showPricingModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2">
@@ -316,7 +316,7 @@
                         <p class="text-[11px] text-amber-800 font-bold">خاص بـ د. عزت الفيل & م. بولا الفيل</p>
                     </div>
                 </div>
-                <button @click="showPricingModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button @click="showPricingModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.pricing.update') }}" class="space-y-4 text-xs">
@@ -338,7 +338,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showPricingModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" @click="showPricingModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -352,14 +352,14 @@
     @endif
 
     <!-- MODAL: ADD RAW MATERIAL -->
-    <div x-show="showAddModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div x-show="showAddModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showAddModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-plus-circle text-amber-600"></i>
                     <span>إضافة خامة / مستلزم جديد للمخزن</span>
                 </h3>
-                <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button @click="showAddModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.rawMaterials.store') }}" enctype="multipart/form-data" class="space-y-4">
@@ -441,7 +441,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showAddModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" @click="showAddModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -454,14 +454,14 @@
     </div>
 
     <!-- MODAL: EDIT RAW MATERIAL -->
-    <div x-show="showEditModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div x-show="showEditModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showEditModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-pen-to-square text-amber-600"></i>
                     <span>تعديل بيانات الخامة: <span class="text-amber-700" x-text="editItem.name"></span></span>
                 </h3>
-                <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button @click="showEditModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
             <form :action="'{{ url('warehouse/raw-materials') }}/' + editItem.id" method="POST" enctype="multipart/form-data" class="space-y-4">
@@ -518,7 +518,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showEditModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" @click="showEditModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -531,14 +531,14 @@
     </div>
 
     <!-- MODAL: FAST STOCK ADJUSTMENT -->
-    <div x-show="showAdjustModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div x-show="showAdjustModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showAdjustModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-scale-balanced text-blue-600"></i>
                     <span>تسوية رصيد جردي للصنف</span>
                 </h3>
-                <button @click="showAdjustModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button @click="showAdjustModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4">
@@ -582,7 +582,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showAdjustModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" @click="showAdjustModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">

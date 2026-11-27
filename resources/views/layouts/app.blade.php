@@ -51,7 +51,12 @@
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Alpine.js 3.x CDN for reactive modals, tabs, and lightboxes -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
     <style>
+        [x-cloak] { display: none !important; }
+
         body {
             font-family: 'Cairo', sans-serif;
             background-color: #f8fafc;
