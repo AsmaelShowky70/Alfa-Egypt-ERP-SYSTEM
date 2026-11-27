@@ -792,7 +792,7 @@ class OperationsController extends Controller
             ->get();
 
         $products = Product::where('status', true)->with('boms.rawMaterial')->get();
-        $rawMaterials = RawMaterial::orderBy('name')->get();
+        $rawMaterials = RawMaterial::where('status', true)->orderBy('name')->get();
 
         $productsJson = $products->map(function ($p) {
             return [
@@ -813,6 +813,8 @@ class OperationsController extends Controller
             'id' => $rm->id,
             'name' => $rm->name,
             'unit' => $rm->unit,
+            'category' => $rm->category,
+            'package_info' => $rm->package_info,
             'stock' => (float) $rm->current_stock,
         ]);
 

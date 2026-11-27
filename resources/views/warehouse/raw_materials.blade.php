@@ -7,8 +7,13 @@
     showAddModal: false,
     showEditModal: false,
     showAdjustModal: false,
+    showPricingModal: false,
+    showZoomModal: false,
+    zoomImage: '',
+    zoomTitle: '',
     editItem: { id: '', name: '', category: '', unit: '', current_stock: 0, reorder_level: 0, unit_cost: 0, package_info: '', warehouse_location: '', supplier_id: '', source_factory_id: '' },
     adjustItem: { id: '', name: '', unit: '', current_stock: 0, new_stock: 0, reason: '', notes: '' },
+    pricingItem: { id: '', name: '', unit: '', unit_cost: 0 },
     openEdit(item) {
         this.editItem = { ...item };
         this.showEditModal = true;
@@ -24,8 +29,48 @@
             notes: ''
         };
         this.showAdjustModal = true;
+    },
+    openPricing(item) {
+        this.pricingItem = {
+            id: item.id,
+            name: item.name,
+            unit: item.unit,
+            unit_cost: item.unit_cost
+        };
+        this.showPricingModal = true;
+    },
+    openZoom(img, title) {
+        this.zoomImage = img;
+        this.zoomTitle = title;
+        this.showZoomModal = true;
     }
 }">
+
+    <!-- Top Management Pricing Authority Banner (دكتور عزت وم. بولا) -->
+    @if(Auth::user()->isOwner() || Auth::user()->isGM())
+        <div class="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-amber-500/50">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-2xl shadow-inner">
+                    <i class="fa-solid fa-crown text-amber-200"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-white text-amber-900 shadow-sm">
+                            صلاحية الإدارة العليا الحصرية
+                        </span>
+                        <span class="text-xs text-amber-100 font-bold">د. عزت الفيل (المالك) & م. بولا الفيل (المدير العام)</span>
+                    </div>
+                    <h2 class="text-lg font-black mt-0.5">لوحة اعتماد أسعار تكلفة الخامات وحسابات الربحية</h2>
+                    <p class="text-xs text-amber-100/90 mt-0.5">تحديد التكلفة الفعلية للخامة محصور بالإدارة العليا لمنع التلاعب وتحديد هوامش أرباح الكوڤير بدقة</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1.5 rounded-xl bg-black/20 text-xs font-bold text-amber-100 border border-white/10">
+                    <i class="fa-solid fa-lock-open ml-1"></i> وضع التسعير مفعل
+                </span>
+            </div>
+        </div>
+    @endif
 
     <!-- Header Section -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -34,7 +79,7 @@
                 <i class="fa-solid fa-cubes-stacked text-amber-600"></i>
                 <span>المواد الخام ومستلزمات الإنتاج (المخزن المركزي)</span>
             </h1>
-            <p class="text-xs text-slate-500 mt-1">إدارة دقيقة لأرصدة الرولات بالكيلو، مستلزمات الحقن، والورقيات بالبالة مع إمكانية الإضافة والتعديل والتسوية الجردية</p>
+            <p class="text-xs text-slate-500 mt-1">عرض دقيق لرصيد المخزن الفعلي بالصور الحية، أوزان الرولات بالكيلو، مستلزمات الحقن، والورقيات بالبالة</p>
         </div>
         <div class="flex items-center gap-2">
             <button @click="showAddModal = true" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
@@ -44,6 +89,10 @@
             <a href="{{ route('warehouse.vouchers.create') }}" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
                 <i class="fa-solid fa-receipt"></i>
                 <span>إذن استلام خامات</span>
+            </a>
+            <a href="{{ route('warehouse.dailyChecks.create') }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-clipboard-check"></i>
+                <span>بدء جرد يومي</span>
             </a>
             <a href="{{ route('warehouse.index') }}" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-1">
                 ← رجوع للمخزن
@@ -97,7 +146,7 @@
     <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <span class="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-                عرض {{ $materials->count() }} من أصل {{ $materials->total() }} خامة ومستلزم
+                عرض {{ $materials->count() }} من أصل {{ $materials->total() }} خامة ومستلزم بالمخزن
             </span>
             <div class="text-xs text-slate-400">
                 إجمالي قيمة المخزون الحالي في الصفحة: 
@@ -109,13 +158,12 @@
             <table class="w-full text-right text-xs">
                 <thead>
                     <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                        <th class="py-3 px-3">صورة الصنف</th>
+                        <th class="py-3 px-3">صورة ورصيد الصنف</th>
                         <th class="py-3 px-3">كود الخامة</th>
-                        <th class="py-3 px-3">اسم الخامة والمواصفات</th>
+                        <th class="py-3 px-3">اسم الخامة والمواصفات التفصيلية</th>
                         <th class="py-3 px-3">التصنيف</th>
                         <th class="py-3 px-3">الوحدة</th>
-                        <th class="py-3 px-3">تكلفة الوحدة</th>
-                        <th class="py-3 px-3">الرصيد المتاح</th>
+                        <th class="py-3 px-3">تكلفة الوحدة (اعتماد الإدارة)</th>
                         <th class="py-3 px-3">إجمالي القيمة</th>
                         <th class="py-3 px-3">حد الأمان</th>
                         <th class="py-3 px-3">الموقع</th>
@@ -129,46 +177,90 @@
                             $isLow = $m->current_stock <= $m->reorder_level && !$isZero;
                         @endphp
                         <tr class="hover:bg-slate-50 transition {{ $isZero ? 'bg-rose-50/20' : ($isLow ? 'bg-amber-50/20' : '') }}">
-                            <td class="py-2.5 px-3">
-                                <img src="{{ $m->image_url }}" alt="{{ $m->name }}" class="w-12 h-12 object-cover rounded-xl border border-slate-200 bg-white shadow-sm" loading="lazy">
+                            <!-- صورة ورصيد الصنف بالخانة المخصصة -->
+                            <td class="py-3 px-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative group cursor-pointer" @click="openZoom('{{ $m->image_url }}', '{{ $m->name }}')">
+                                        <img src="{{ $m->image_url }}" alt="{{ $m->name }}" class="w-14 h-14 object-cover rounded-2xl border border-slate-200 bg-white shadow-sm group-hover:scale-105 transition" loading="lazy">
+                                        <div class="absolute inset-0 bg-black/30 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs">
+                                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="font-black text-sm {{ $isZero ? 'text-rose-600' : ($isLow ? 'text-amber-600' : 'text-slate-900') }}">
+                                            {{ number_format($m->current_stock, 2) }}
+                                            <span class="text-xs font-bold text-slate-600">{{ $m->unit }}</span>
+                                        </div>
+                                        @if($isZero)
+                                            <span class="inline-block text-[9px] bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded mt-0.5">رصيد صفري</span>
+                                        @elseif($isLow)
+                                            <span class="inline-block text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded mt-0.5">تحت حد الأمان</span>
+                                        @else
+                                            <span class="inline-block text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded mt-0.5">متوفر وجاهز</span>
+                                        @endif
+                                    </div>
+                                </div>
                             </td>
-                            <td class="py-2.5 px-3 font-mono font-bold text-slate-700">{{ $m->code }}</td>
-                            <td class="py-2.5 px-3">
+
+                            <td class="py-3 px-3 font-mono font-bold text-slate-700">{{ $m->code }}</td>
+
+                            <td class="py-3 px-3">
                                 <div class="font-black text-slate-900 text-sm">{{ $m->name }}</div>
                                 @if($m->package_info)
-                                    <div class="text-[11px] text-blue-700 font-medium mt-0.5 flex items-center gap-1">
+                                    <div class="text-[11px] text-blue-700 font-bold mt-1 flex items-center gap-1.5 bg-blue-50/70 px-2 py-0.5 rounded-lg border border-blue-100 w-fit">
                                         <i class="fa-solid fa-boxes-packing text-blue-500"></i>
                                         <span>{{ $m->package_info }}</span>
                                     </div>
                                 @endif
                             </td>
-                            <td class="py-2.5 px-3">
-                                <span class="inline-block px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700">
+
+                            <td class="py-3 px-3">
+                                <span class="inline-block px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                     {{ $m->category }}
                                 </span>
                             </td>
-                            <td class="py-2.5 px-3 text-slate-600 font-bold">{{ $m->unit }}</td>
-                            <td class="py-2.5 px-3 font-black text-brand-700">
-                                {{ number_format($m->unit_cost, 2) }} ج.م
-                                @if($m->unit_cost < 1)
-                                    <span class="text-[10px] text-slate-400 font-normal">({{ round($m->unit_cost * 100) }} ق)</span>
-                                @endif
+
+                            <td class="py-3 px-3 text-slate-600 font-bold">{{ $m->unit }}</td>
+
+                            <td class="py-3 px-3">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-black text-brand-700 text-sm">
+                                        {{ number_format($m->unit_cost, 2) }} ج.م
+                                    </span>
+                                    @if(Auth::user()->isOwner() || Auth::user()->isGM())
+                                        <button type="button" @click="openPricing({{ json_encode($m) }})" title="تسعير الإدارة العليا" class="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition">
+                                            <i class="fa-solid fa-pen text-[10px]"></i>
+                                        </button>
+                                    @endif
+                                </div>
+                                <span class="text-[10px] text-slate-400 block">
+                                    @if(Auth::user()->isOwner() || Auth::user()->isGM())
+                                        معتمد للإدارة العليا
+                                    @else
+                                        تسعير محمي ومقيد
+                                    @endif
+                                </span>
                             </td>
-                            <td class="py-2.5 px-3 font-black {{ $isZero ? 'text-rose-600' : ($isLow ? 'text-amber-600' : 'text-slate-900') }}">
-                                <span class="text-sm">{{ number_format($m->current_stock, 2) }}</span>
-                                @if($isZero)
-                                    <span class="inline-block text-[9px] bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded mr-1">رصيد 0</span>
-                                @elseif($isLow)
-                                    <span class="inline-block text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded mr-1">عجز</span>
-                                @endif
-                            </td>
-                            <td class="py-2.5 px-3 font-black text-slate-800">
+
+                            <td class="py-3 px-3 font-black text-slate-800">
                                 {{ number_format($m->current_stock * $m->unit_cost, 2) }} ج.م
                             </td>
-                            <td class="py-2.5 px-3 text-slate-500 font-mono">{{ number_format($m->reorder_level) }} {{ $m->unit }}</td>
-                            <td class="py-2.5 px-3 text-slate-500 font-medium">{{ $m->warehouse_location ?? 'عنبر عام' }}</td>
-                            <td class="py-2.5 px-3 text-center">
+
+                            <td class="py-3 px-3 text-slate-500 font-mono">{{ number_format($m->reorder_level) }} {{ $m->unit }}</td>
+
+                            <td class="py-3 px-3 text-slate-500 font-medium">
+                                <i class="fa-solid fa-location-dot text-slate-400 ml-1"></i>
+                                {{ $m->warehouse_location ?? 'عنبر عام' }}
+                            </td>
+
+                            <td class="py-3 px-3 text-center">
                                 <div class="inline-flex items-center gap-1.5">
+                                    @if(Auth::user()->isOwner() || Auth::user()->isGM())
+                                        <button type="button" @click="openPricing({{ json_encode($m) }})" title="تسعير الإدارة العليا" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                                            <i class="fa-solid fa-coins"></i>
+                                            <span>تسعير</span>
+                                        </button>
+                                    @endif
                                     <button type="button" @click="openAdjust({{ json_encode($m) }})" title="تسوية رصيد جردي" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1">
                                         <i class="fa-solid fa-scale-balanced"></i>
                                         <span>تسوية</span>
@@ -182,7 +274,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="py-8 text-center text-slate-400">
+                            <td colspan="10" class="py-8 text-center text-slate-400">
                                 لا توجد خامات مطابقة للبحث أو التصفية الحالية.
                             </td>
                         </tr>
@@ -196,7 +288,70 @@
         </div>
     </div>
 
-    <!-- MODAL 1: ADD RAW MATERIAL -->
+    <!-- MODAL: IMAGE ZOOM LIGHTBOX -->
+    <div x-show="showZoomModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div @click.away="showZoomModal = false" class="bg-white rounded-3xl max-w-xl w-full p-4 shadow-2xl space-y-3 border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 class="font-black text-slate-900 text-sm" x-text="zoomTitle"></h3>
+                <button @click="showZoomModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+            </div>
+            <div class="bg-slate-50 p-2 rounded-2xl flex items-center justify-center">
+                <img :src="zoomImage" :alt="zoomTitle" class="max-h-[70vh] rounded-xl object-contain shadow-sm">
+            </div>
+            <div class="text-center text-xs text-slate-500 font-medium">صورة الصنف الفعلية الملتقطة من جرد المخزن المركزي</div>
+        </div>
+    </div>
+
+    <!-- MODAL: TOP MANAGEMENT PRICING (دكتور عزت وم. بولا) -->
+    @if(Auth::user()->isOwner() || Auth::user()->isGM())
+    <div x-show="showPricingModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showPricingModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                        <i class="fa-solid fa-crown"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-base font-black text-slate-900">اعتماد سعر تكلفة الخامة</h3>
+                        <p class="text-[11px] text-amber-800 font-bold">خاص بـ د. عزت الفيل & م. بولا الفيل</p>
+                    </div>
+                </div>
+                <button @click="showPricingModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+
+            <form method="POST" action="{{ route('warehouse.pricing.update') }}" class="space-y-4 text-xs">
+                @csrf
+                <input type="hidden" name="material_id" :value="pricingItem.id">
+
+                <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
+                    <div class="font-black text-slate-900" x-text="pricingItem.name"></div>
+                    <div class="text-slate-500">الوحدة: <span class="font-bold text-slate-800" x-text="pricingItem.unit"></span></div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">سعر التكلفة الجديد المعتمد (ج.م) *</label>
+                    <div class="relative">
+                        <input type="number" step="0.001" min="0" name="unit_cost" x-model="pricingItem.unit_cost" required class="w-full text-base font-black rounded-xl border-amber-300 focus:ring-amber-500 focus:border-amber-500 pr-3 pl-12">
+                        <span class="absolute left-3 top-2.5 text-xs font-bold text-slate-400">ج.م</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1">سيتم استخدام هذا السعر لحساب ربحية الكوڤير وتسعير أوامر الشغل تلقائياً.</p>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button type="button" @click="showPricingModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-check"></i>
+                        <span>اعتماد السعر وتحديث الربحية</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL: ADD RAW MATERIAL -->
     <div x-show="showAddModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showAddModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -219,11 +374,11 @@
                         <label class="block font-bold text-slate-700 mb-1">التصنيف *</label>
                         <select name="category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                             <option value="رولات سيلوفان وبوليمرات">رولات سيلوفان وبوليمرات</option>
-                            <option value="مستلزمات حقن وبلاستيك">مستلزمات حقن وبلاستيك (معالق، شوك، سكاكين)</option>
+                            <option value="مستلزمات حقن وبلاستيك">مستلزمات حقن وبلاستيك (معالق، شوك، سكاكين، شاليموه)</option>
                             <option value="مناديل وورقيات">مناديل وورقيات (بالات، مناديل معطرة)</option>
-                            <option value="خامات بهارات ومواد غذائية">خامات بهارات ومواد غذائية (ملح، فلفل، كاتشب)</option>
+                            <option value="خامات بهارات ومواد غذائية">خامات بهارات ومواد غذائية (ملح، فلفل، كاتشب، معطر)</option>
                             <option value="كراتين ومواد تغليف">كراتين ومواد تغليف</option>
-                            <option value="مستلزمات نظافة وضيافة">مستلزمات نظافة وضيافة (جوانتيات، صابون)</option>
+                            <option value="مستلزمات نظافة وضيافة">مستلزمات نظافة وضيافة (جوانتيات، صابون، خلة)</option>
                             <option value="قطع غيار ماكينات">قطع غيار ماكينات</option>
                         </select>
                     </div>
@@ -232,11 +387,12 @@
                         <label class="block font-bold text-slate-700 mb-1">وحدة القياس والصرف *</label>
                         <select name="unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                             <option value="كجم">كجم (للرولات والخامات بالكيلو)</option>
-                            <option value="قطعة">قطعة (للمعالق والشوك)</option>
+                            <option value="قطعة">قطعة (للمعالق والشوك والخلة)</option>
                             <option value="بالة">بالة (للمناديل الورقية)</option>
                             <option value="كرتونة">كرتونة</option>
                             <option value="رول">رول</option>
-                            <option value="لتر">لتر</option>
+                            <option value="زجاجة">زجاجة (للمعطر)</option>
+                            <option value="ظرف">ظرف (للكاتشب)</option>
                         </select>
                     </div>
 
@@ -253,6 +409,9 @@
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">التكلفة الفعلية للوحدة (ج.م) *</label>
                         <input type="number" step="0.001" min="0" name="unit_cost" value="0.00" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        @if(!Auth::user()->isOwner() && !Auth::user()->isGM())
+                            <span class="text-[10px] text-amber-700 block mt-0.5">ملاحظة: السعر يخضع لاعتماد الإدارة العليا (د. عزت وم. بولا).</span>
+                        @endif
                     </div>
 
                     <div>
@@ -294,7 +453,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: EDIT RAW MATERIAL -->
+    <!-- MODAL: EDIT RAW MATERIAL -->
     <div x-show="showEditModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showEditModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -336,7 +495,10 @@
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">تكلفة الوحدة (ج.م) *</label>
-                        <input type="number" step="0.001" min="0" name="unit_cost" x-model="editItem.unit_cost" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="number" step="0.001" min="0" name="unit_cost" x-model="editItem.unit_cost" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500" {{ (!Auth::user()->isOwner() && !Auth::user()->isGM()) ? 'readonly' : '' }}>
+                        @if(!Auth::user()->isOwner() && !Auth::user()->isGM())
+                            <span class="text-[10px] text-slate-400 block mt-0.5">التسعير مقيد - خاص بالإدارة العليا</span>
+                        @endif
                     </div>
 
                     <div>
@@ -368,7 +530,7 @@
         </div>
     </div>
 
-    <!-- MODAL 3: FAST STOCK ADJUSTMENT -->
+    <!-- MODAL: FAST STOCK ADJUSTMENT -->
     <div x-show="showAdjustModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showAdjustModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">

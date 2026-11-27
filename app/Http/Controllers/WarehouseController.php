@@ -94,8 +94,9 @@ class WarehouseController extends Controller
         $categories = RawMaterial::distinct()->pluck('category')->filter()->values();
         $suppliers = Supplier::where('status', true)->get();
         $factories = Factory::all();
+        $isTopManagement = Auth::user()->isOwner() || Auth::user()->isGM();
 
-        return view('warehouse.raw_materials', compact('materials', 'categories', 'suppliers', 'factories'));
+        return view('warehouse.raw_materials', compact('materials', 'categories', 'suppliers', 'factories', 'isTopManagement'));
     }
 
     public function storeRawMaterial(Request $request): RedirectResponse
@@ -198,13 +199,16 @@ class WarehouseController extends Controller
             $imagePath = 'uploads/raw_materials/'.$filename;
         }
 
+        $isTopManagement = Auth::user()->isOwner() || Auth::user()->isGM();
+        $unitCost = $isTopManagement ? (float) ($validated['unit_cost'] ?? $rawMaterial->unit_cost) : (float) $rawMaterial->unit_cost;
+
         $rawMaterial->update([
             'name' => $validated['name'],
             'category' => $validated['category'],
             'unit' => $validated['unit'],
             'current_stock' => $validated['current_stock'],
             'reorder_level' => $validated['reorder_level'],
-            'unit_cost' => $validated['unit_cost'],
+            'unit_cost' => $unitCost,
             'package_info' => $validated['package_info'] ?? $rawMaterial->package_info,
             'warehouse_location' => $validated['warehouse_location'] ?? $rawMaterial->warehouse_location,
             'supplier_id' => $validated['supplier_id'] ?? $rawMaterial->supplier_id,
@@ -212,7 +216,55 @@ class WarehouseController extends Controller
             'image' => $imagePath,
         ]);
 
-        return back()->with('success', 'تم تحديث بيانات ومواصفات ورصيد الخامة ('.$rawMaterial->name.') بنجاح.');
+        $msg = $isTopManagement
+            ? 'تم تحديث بيانات ومواصفات ورصيد وتكلفة الخامة ('.$rawMaterial->name.') واعتماد التسعير بنجاح.'
+            : 'تم تحديث بيانات ورصيد ومواصفات الخامة ('.$rawMaterial->name.') بنجاح (تسعير التكلفة محصور بالإدارة العليا).';
+
+        return back()->with('success', $msg);
+    }
+
+    public function updatePricing(Request $request): RedirectResponse
+    {
+        if (! Auth::user()->isOwner() && ! Auth::user()->isGM()) {
+            return back()->with('error', 'عفواً، صلاحية تسعير وتحديد تكلفة الخامات والمنتجات التامة محصورة بالإدارة العليا فقط (د. عزت الفيل وم. بولا الفيل).');
+        }
+
+        $validated = $request->validate([
+            'type' => 'nullable|string',
+            'id' => 'nullable|integer',
+            'material_id' => 'nullable|exists:raw_materials,id',
+            'unit_cost' => 'nullable|numeric|min:0',
+            'product_id' => 'nullable|exists:products,id',
+            'selling_price' => 'nullable|numeric|min:0',
+            'cost_price' => 'nullable|numeric|min:0',
+        ]);
+
+        $materialId = $validated['material_id'] ?? (($validated['type'] ?? '') === 'raw_material' ? ($validated['id'] ?? null) : null);
+        $productId = $validated['product_id'] ?? (in_array($validated['type'] ?? '', ['product', 'finished_good']) ? ($validated['id'] ?? null) : null);
+
+        if (! empty($materialId) && isset($validated['unit_cost'])) {
+            $mat = RawMaterial::findOrFail($materialId);
+            $mat->update(['unit_cost' => $validated['unit_cost']]);
+
+            return back()->with('success', 'تم اعتماد سعر تكلفة الخامة ('.$mat->name.') بنجاح بمقدار '.number_format($validated['unit_cost'], 2).' ج.م بواسطة الإدارة العليا.');
+        }
+
+        if (! empty($productId)) {
+            $prod = Product::findOrFail($productId);
+            $updates = [];
+            if (isset($validated['selling_price'])) {
+                $updates['selling_price'] = $validated['selling_price'];
+            }
+            if (isset($validated['cost_price'])) {
+                $updates['cost_price'] = $validated['cost_price'];
+                $updates['min_selling_price'] = round($validated['cost_price'] * 1.14, 2);
+            }
+            $prod->update($updates);
+
+            return back()->with('success', 'تم اعتماد سعر بيع الكوڤير ('.$prod->name.') مع تطبيق نسبة 14% مصنعية تصنيع داخلي بنجاح.');
+        }
+
+        return back()->with('success', 'تم تحديث واعتماد الأسعار بنجاح.');
     }
 
     public function destroyRawMaterial(RawMaterial $rawMaterial): RedirectResponse
@@ -296,7 +348,7 @@ class WarehouseController extends Controller
             'customer_id' => $validated['customer_id'] ?? null,
             'cost_price' => $validated['cost_price'],
             'selling_price' => $validated['selling_price'],
-            'min_selling_price' => $validated['cost_price'] * 1.10,
+            'min_selling_price' => round($validated['cost_price'] * 1.14, 2),
             'current_stock' => $validated['current_stock'],
             'reorder_level' => $validated['reorder_level'],
             'package_info' => $validated['package_info'] ?? null,
@@ -339,7 +391,7 @@ class WarehouseController extends Controller
             'customer_id' => $validated['customer_id'] ?? $product->customer_id,
             'cost_price' => $validated['cost_price'],
             'selling_price' => $validated['selling_price'],
-            'min_selling_price' => $validated['cost_price'] * 1.10,
+            'min_selling_price' => round($validated['cost_price'] * 1.14, 2),
             'current_stock' => $validated['current_stock'],
             'reorder_level' => $validated['reorder_level'],
             'package_info' => $validated['package_info'] ?? $product->package_info,
@@ -792,25 +844,52 @@ class WarehouseController extends Controller
     }
 
     // ================= DAILY INVENTORY CHECK (الجرد اليومي) =================
-    public function dailyChecks(): View
+    public function dailyChecks(Request $request): View
     {
-        $checks = DailyInventoryCheck::with(['warehouseManager', 'items'])->latest()->paginate(20);
+        $query = DailyInventoryCheck::with(['warehouseManager', 'items'])->latest();
 
-        return view('warehouse.daily_checks.index', compact('checks'));
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('from_date')) {
+            $query->whereDate('check_date', '>=', $request->from_date);
+        }
+
+        if ($request->filled('to_date')) {
+            $query->whereDate('check_date', '<=', $request->to_date);
+        }
+
+        $checks = $query->paginate(20)->withQueryString();
+
+        $totalChecksCount = DailyInventoryCheck::count();
+        $totalSurplusSum = (float) DailyInventoryCheck::sum('total_surplus_value');
+        $totalDeficitSum = (float) DailyInventoryCheck::sum('total_deficit_value');
+        $netVarianceSum = $totalSurplusSum - $totalDeficitSum;
+
+        return view('warehouse.daily_checks.index', compact(
+            'checks',
+            'totalChecksCount',
+            'totalSurplusSum',
+            'totalDeficitSum',
+            'netVarianceSum'
+        ));
     }
 
     public function createDailyCheck(Request $request): View
     {
         $category = $request->get('category', 'raw_materials');
         if ($category === 'raw_materials') {
-            $items = RawMaterial::where('category', '!=', 'spare_part')->get();
+            $items = RawMaterial::where('category', '!=', 'spare_part')->where('status', true)->orderBy('category')->orderBy('name')->get();
         } elseif ($category === 'spare_parts') {
-            $items = RawMaterial::where('category', 'spare_part')->get();
+            $items = RawMaterial::where('category', 'spare_part')->where('status', true)->orderBy('name')->get();
         } else {
-            $items = Product::all();
+            $items = Product::where('status', true)->orderBy('name')->get();
         }
 
-        return view('warehouse.daily_checks.create', compact('category', 'items'));
+        $categoriesList = RawMaterial::where('status', true)->distinct()->pluck('category')->filter()->values();
+
+        return view('warehouse.daily_checks.create', compact('category', 'items', 'categoriesList'));
     }
 
     public function storeDailyCheck(Request $request): RedirectResponse
@@ -1134,7 +1213,7 @@ class WarehouseController extends Controller
         $customerId = $request->input('customer_id');
         $factoryId = $request->input('factory_id');
 
-        $query = StockMovementItem::with(['stockMovement.warehouseManager'])
+        $query = StockMovementItem::with(['stockMovement.warehouseManager', 'rawMaterial', 'product'])
             ->whereHas('stockMovement', function ($q) use ($fromDate, $toDate) {
                 if ($fromDate) {
                     $q->whereDate('voucher_date', '>=', $fromDate);

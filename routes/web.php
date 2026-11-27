@@ -85,6 +85,7 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/adjust-stock', [WarehouseController::class, 'adjustStock'])->name('adjustStock');
         Route::post('/dispatch-sale', [WarehouseController::class, 'dispatchSale'])->name('dispatchSale');
+        Route::post('/pricing/update', [WarehouseController::class, 'updatePricing'])->name('pricing.update');
 
         Route::get('/material-requisitions', [WarehouseController::class, 'materialRequisitions'])->name('materialRequisitions');
         Route::get('/material-requisitions/{materialRequisition}', [WarehouseController::class, 'showMaterialRequisition'])->name('materialRequisitions.show');

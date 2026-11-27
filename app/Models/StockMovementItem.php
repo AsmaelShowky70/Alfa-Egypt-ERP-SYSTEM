@@ -32,4 +32,23 @@ class StockMovementItem extends Model
     {
         return $this->belongsTo(StockMovement::class);
     }
+
+    public function rawMaterial(): BelongsTo
+    {
+        return $this->belongsTo(RawMaterial::class, 'item_id');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'item_id');
+    }
+
+    public function getImageUrlAttribute(): string
+    {
+        if ($this->item_type === 'product') {
+            return $this->product?->image_url ?? asset('assets/images/placeholder.png');
+        }
+
+        return $this->rawMaterial?->image_url ?? asset('assets/images/placeholder.png');
+    }
 }

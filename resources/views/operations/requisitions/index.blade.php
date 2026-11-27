@@ -324,11 +324,12 @@
     }
 
     function buildMaterialOptions(selectedId) {
-        let html = '<option value="">-- اختر خامة من المخزن --</option>';
+        let html = '<option value="">-- اختر خامة من المخزن المركزي --</option>';
         html += '<option value="custom" class="bg-blue-50 text-blue-700 font-bold">➕ كتابة صنف يدوي جديد (غير مسجل بالمخزن)</option>';
         rawMaterialsList.forEach(rm => {
             const sel = (selectedId && rm.id == selectedId) ? 'selected' : '';
-            html += `<option value="${rm.id}" ${sel}>${rm.name} (المتاح: ${rm.stock.toLocaleString('en-US')} ${rm.unit})</option>`;
+            const pkg = rm.package_info ? ` [${rm.package_info}]` : '';
+            html += `<option value="${rm.id}" ${sel}>${rm.name}${pkg} (المتاح: ${rm.stock.toLocaleString('en-US')} ${rm.unit})</option>`;
         });
         return html;
     }

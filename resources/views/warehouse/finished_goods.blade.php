@@ -8,9 +8,14 @@
     showEditModal: false,
     showAdjustModal: false,
     showDispatchModal: false,
+    showPricingModal: false,
+    showZoomModal: false,
+    zoomImage: '',
+    zoomTitle: '',
     editItem: { id: '', name: '', category: '', unit: '', customer_id: '', cost_price: 0, selling_price: 0, current_stock: 0, reorder_level: 0, package_info: '', description: '' },
     adjustItem: { id: '', name: '', unit: '', current_stock: 0, new_stock: 0, reason: '', notes: '' },
     dispatchItem: { id: '', name: '', unit: '', current_stock: 0, selling_price: 0, customer_id: '', quantity: 1, total: 0, payment_type: 'credit', received_by: '', dispatch_date: '{{ date('Y-m-d') }}', notes: '' },
+    pricingItem: { id: '', name: '', cost_price: 0, selling_price: 0, factory_price: 0 },
     openEdit(p) {
         this.editItem = { ...p };
         this.showEditModal = true;
@@ -43,8 +48,49 @@
             notes: ''
         };
         this.showDispatchModal = true;
+    },
+    openPricing(p) {
+        this.pricingItem = {
+            id: p.id,
+            name: p.name,
+            cost_price: p.cost_price,
+            selling_price: p.selling_price,
+            factory_price: (Number(p.cost_price) * 1.14).toFixed(2)
+        };
+        this.showPricingModal = true;
+    },
+    openZoom(img, title) {
+        this.zoomImage = img;
+        this.zoomTitle = title;
+        this.showZoomModal = true;
     }
 }">
+
+    <!-- Top Management Couvert Pricing & 14% Factory Markup Banner -->
+    <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 text-white rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-500/40">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-2xl shadow-inner">
+                <i class="fa-solid fa-calculator text-emerald-300"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-400 text-slate-900 shadow-sm">
+                        معادلة التسعير المعتمدة
+                    </span>
+                    <span class="text-xs text-emerald-100 font-bold">إشراف: د. عزت الفيل & م. بولا الفيل</span>
+                </div>
+                <h2 class="text-lg font-black mt-0.5">تسعير الكوڤير الثابت + 14% مصنعية تصنيع داخلي للبيع للغير</h2>
+                <p class="text-xs text-emerald-100/90 mt-0.5">
+                    سعر الكوڤير ثابت تحدده الإدارة العليا، وللمصانع الداخلية: <span class="font-bold underline text-white">تكلفة الخامات (BOM) + 14% مصنعية = سعر البيع للغير</span>.
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1.5 rounded-xl bg-white/10 text-xs font-black text-emerald-200 border border-emerald-400/30">
+                <i class="fa-solid fa-percent ml-1"></i> مصنعية 14% مبرمجة آلياً
+            </span>
+        </div>
+    </div>
 
     <!-- Header Section -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -64,6 +110,10 @@
                 <i class="fa-solid fa-truck-ramp-box"></i>
                 <span>صرف وبيع من المخزن</span>
             </button>
+            <a href="{{ route('warehouse.dailyChecks.create', ['category' => 'finished_goods']) }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-clipboard-check"></i>
+                <span>جرد المنتج التام</span>
+            </a>
             <a href="{{ route('warehouse.index') }}" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-1">
                 ← رجوع للمخزن
             </a>
@@ -118,30 +168,36 @@
             @php
                 $isZero = $p->current_stock <= 0;
                 $isLow = $p->current_stock <= $p->reorder_level && !$isZero;
+                $factorySellingPrice = round($p->cost_price * 1.14, 2);
             @endphp
             <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition {{ $isZero ? 'border-rose-300 bg-rose-50/10' : '' }}">
                 <div class="space-y-3">
                     <div class="flex items-start justify-between gap-3">
-                        <div>
+                        <div class="space-y-1">
                             <span class="font-mono text-xs font-bold text-slate-400">{{ $p->code }}</span>
-                            <h3 class="font-black text-base text-slate-900 mt-0.5">{{ $p->name }}</h3>
+                            <h3 class="font-black text-base text-slate-900">{{ $p->name }}</h3>
                             @if($p->customer)
-                                <p class="text-xs font-bold text-brand-700 mt-1 flex items-center gap-1">
+                                <p class="text-xs font-bold text-brand-700 flex items-center gap-1">
                                     <i class="fa-solid fa-tag"></i>
                                     <span>مخصص لعميل: {{ $p->customer->name }}</span>
                                 </p>
                             @else
-                                <p class="text-xs font-bold text-slate-500 mt-1 flex items-center gap-1">
+                                <p class="text-xs font-bold text-slate-500 flex items-center gap-1">
                                     <i class="fa-solid fa-store"></i>
                                     <span>متاح للبيع للغير من المخزن</span>
                                 </p>
                             @endif
                         </div>
-                        <img src="{{ $p->image_url }}" alt="{{ $p->name }}" class="w-16 h-16 rounded-2xl object-cover bg-white p-1 border border-slate-200 shadow-sm" loading="lazy">
+                        <div class="relative group cursor-pointer" @click="openZoom('{{ $p->image_url }}', '{{ $p->name }}')">
+                            <img src="{{ $p->image_url }}" alt="{{ $p->name }}" class="w-16 h-16 rounded-2xl object-cover bg-white p-1 border border-slate-200 shadow-sm group-hover:scale-105 transition" loading="lazy">
+                            <div class="absolute inset-0 bg-black/30 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i>
+                            </div>
+                        </div>
                     </div>
 
                     @if($p->package_info)
-                        <div class="text-xs text-blue-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-100 flex items-center gap-1.5 font-medium">
+                        <div class="text-xs text-blue-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-100 flex items-center gap-1.5 font-bold">
                             <i class="fa-solid fa-boxes-packing text-blue-600"></i>
                             <span>{{ $p->package_info }}</span>
                         </div>
@@ -171,20 +227,25 @@
                             </span>
                         </div>
                     </div>
+
+                    <!-- 14% Internal Factory Markup & Couvert Pricing Calculation -->
+                    <div class="p-2.5 rounded-xl bg-slate-100/80 border border-slate-200 text-xs space-y-1">
+                        <div class="flex items-center justify-between text-slate-600">
+                            <span>تكلفة الخامات (BOM):</span>
+                            <span class="font-black text-slate-800">{{ number_format($p->cost_price, 2) }} ج.م</span>
+                        </div>
+                        <div class="flex items-center justify-between text-emerald-700 font-bold">
+                            <span>سعر البيع للغير (+14% مصنعية):</span>
+                            <span class="font-black text-sm text-emerald-800">{{ number_format($factorySellingPrice, 2) }} ج.م</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-500 text-[10px]">
+                            <span>السعر الثابت المعتمد للإدارة:</span>
+                            <span class="font-black text-brand-700 text-xs">{{ number_format($p->selling_price, 2) }} ج.م</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="space-y-3 pt-3 border-t border-slate-100">
-                    <div class="flex items-center justify-between text-xs">
-                        <div>
-                            <span class="text-[10px] text-slate-400 block">تكلفة القطعة (BOM)</span>
-                            <span class="font-black text-slate-700">{{ number_format($p->cost_price, 2) }} ج.م</span>
-                        </div>
-                        <div class="text-left">
-                            <span class="text-[10px] text-slate-400 block">سعر البيع المعتمد</span>
-                            <span class="font-black text-brand-700 text-sm">{{ number_format($p->selling_price, 2) }} ج.م</span>
-                        </div>
-                    </div>
-
                     <!-- Action Buttons -->
                     <div class="grid grid-cols-3 gap-1.5 pt-1">
                         <button type="button" @click="openDispatch({{ json_encode($p) }})" class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm">
@@ -195,10 +256,17 @@
                             <i class="fa-solid fa-scale-balanced"></i>
                             <span>تسوية</span>
                         </button>
-                        <button type="button" @click="openEdit({{ json_encode($p) }})" class="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
-                            <i class="fa-solid fa-pen-to-square"></i>
-                            <span>تعديل</span>
-                        </button>
+                        @if(Auth::user()->isOwner() || Auth::user()->isGM())
+                            <button type="button" @click="openPricing({{ json_encode($p) }})" class="py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-coins"></i>
+                                <span>تسعير</span>
+                            </button>
+                        @else
+                            <button type="button" @click="openEdit({{ json_encode($p) }})" class="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                                <span>تعديل</span>
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -214,7 +282,78 @@
         {{ $products->links() }}
     </div>
 
-    <!-- MODAL 1: ADD FINISHED GOOD -->
+    <!-- MODAL: IMAGE ZOOM LIGHTBOX -->
+    <div x-show="showZoomModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div @click.away="showZoomModal = false" class="bg-white rounded-3xl max-w-xl w-full p-4 shadow-2xl space-y-3 border border-slate-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 class="font-black text-slate-900 text-sm" x-text="zoomTitle"></h3>
+                <button @click="showZoomModal = false" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+            </div>
+            <div class="bg-slate-50 p-2 rounded-2xl flex items-center justify-center">
+                <img :src="zoomImage" :alt="zoomTitle" class="max-h-[70vh] rounded-xl object-contain shadow-sm">
+            </div>
+            <div class="text-center text-xs text-slate-500 font-medium">صورة المنتج التام الفعلية من جرد المخزن المركزي</div>
+        </div>
+    </div>
+
+    <!-- MODAL: TOP MANAGEMENT COUVERT PRICING -->
+    @if(Auth::user()->isOwner() || Auth::user()->isGM())
+    <div x-show="showPricingModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div @click.away="showPricingModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                        <i class="fa-solid fa-crown"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-base font-black text-slate-900">تسعير الكوڤير ومصنعية الـ 14%</h3>
+                        <p class="text-[11px] text-amber-800 font-bold">خاص بـ د. عزت الفيل & م. بولا الفيل</p>
+                    </div>
+                </div>
+                <button @click="showPricingModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+            </div>
+
+            <form method="POST" action="{{ route('warehouse.pricing.update') }}" class="space-y-4 text-xs">
+                @csrf
+                <input type="hidden" name="product_id" :value="pricingItem.id">
+
+                <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
+                    <div class="font-black text-slate-900" x-text="pricingItem.name"></div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">تكلفة الخامات المباشرة (BOM) ج.م *</label>
+                    <input type="number" step="0.01" min="0" name="cost_price" x-model="pricingItem.cost_price" @input="pricingItem.factory_price = (Number(pricingItem.cost_price) * 1.14).toFixed(2)" required class="w-full text-xs font-black rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                </div>
+
+                <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <div class="flex items-center justify-between font-bold text-emerald-900">
+                        <span>سعر البيع للغير بعد إضافة 14% مصنعية:</span>
+                        <span class="font-black text-base text-emerald-700" x-text="pricingItem.factory_price + ' ج.م'"></span>
+                    </div>
+                    <p class="text-[10px] text-emerald-700 mt-1">يحتسب آلياً: التكلفة × 1.14 طبقاً لقواعد التصنيع الداخلي.</p>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">سعر بيع الكوڤير الثابت المعتمد (ج.م) *</label>
+                    <input type="number" step="0.01" min="0" name="selling_price" x-model="pricingItem.selling_price" required class="w-full text-xs font-black rounded-xl border-amber-300 focus:ring-amber-500 focus:border-amber-500">
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button type="button" @click="showPricingModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                        <i class="fa-solid fa-check"></i>
+                        <span>اعتماد التسعير والمصنعية</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL: ADD FINISHED GOOD -->
     <div x-show="showAddModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showAddModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -312,7 +451,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: EDIT FINISHED GOOD -->
+    <!-- MODAL: EDIT FINISHED GOOD -->
     <div x-show="showEditModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showEditModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -396,7 +535,7 @@
         </div>
     </div>
 
-    <!-- MODAL 3: DIRECT SALE & DISPATCH FROM WAREHOUSE -->
+    <!-- MODAL: DIRECT SALE & DISPATCH FROM WAREHOUSE -->
     <div x-show="showDispatchModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showDispatchModal = false" class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -492,7 +631,7 @@
         </div>
     </div>
 
-    <!-- MODAL 4: FAST STOCK ADJUSTMENT FOR FINISHED GOODS -->
+    <!-- MODAL: FAST STOCK ADJUSTMENT FOR FINISHED GOODS -->
     <div x-show="showAdjustModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div @click.away="showAdjustModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
