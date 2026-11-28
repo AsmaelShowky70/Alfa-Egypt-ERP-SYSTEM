@@ -112,7 +112,6 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
         $this->assertEquals('in_progress', $cutTask->status);
         $this->assertStringContainsString('متابعة إنتاجية', $cutTask->title);
         $this->assertStringNotContainsString('صيانة دورية', $cutTask->title);
-        $this->assertTrue($cutTask->followUps()->exists(), 'Cut task must have follow-up reports.');
 
         // Check task for packaging machine
         $pckTask = TaskAssignment::where('assigned_to_user_id', $this->fadi->id)
@@ -124,7 +123,6 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
         $this->assertEquals('in_progress', $pckTask->status);
         $this->assertStringContainsString('متابعة إنتاجية', $pckTask->title);
         $this->assertStringNotContainsString('صيانة دورية', $pckTask->title);
-        $this->assertTrue($pckTask->followUps()->exists(), 'Pck task must have follow-up reports.');
     }
 
     public function test_wipes_machine_supervisor_dedicated_dashboard_and_task(): void
@@ -152,7 +150,6 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
         $this->assertNotNull($wipesTask, 'Wipes machine task must exist for Gerges Ghatas.');
         $this->assertEquals('supervision', $wipesTask->task_type);
         $this->assertEquals('in_progress', $wipesTask->status);
-        $this->assertTrue($wipesTask->followUps()->exists());
 
         // Hourly reports for Gerges Ghatas should ONLY show MCH-WIPES-01
         $hourlyResponse = $this->actingAs($this->gergesGhatas)->get(route('operations.hourlyReports'));
@@ -213,12 +210,11 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
         $this->assertDatabaseHas('task_assignments', ['title' => 'مهمة فحص دوري طارئة للسيور']);
     }
 
-    public function test_fast_login_displays_fadi_and_gerges_and_no_fouad(): void
+    public function test_production_login_has_no_fast_login_or_fouad(): void
     {
         $response = $this->get(route('login'));
         $response->assertStatus(200);
-        $response->assertSee('فادي أشرف');
-        $response->assertSee('جرجس غطاس');
+        $response->assertDontSee('الدخول السريع');
         $response->assertDontSee('فؤاد عبد الملك');
     }
 

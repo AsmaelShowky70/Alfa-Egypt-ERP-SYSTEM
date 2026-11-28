@@ -33,48 +33,61 @@ class AlfaErpEndToEndTest extends TestCase
     }
 
     /**
-     * 1. Test Login Page loads successfully with all 8 manager profiles
+     * 1. Test Login Page loads cleanly in production mode without fast login
      */
-    public function test_login_page_renders_with_fast_access(): void
+    public function test_login_page_renders_without_fast_access(): void
     {
         $response = $this->get('/login');
         $response->assertStatus(200);
         $response->assertSee('شركة الفا ايجبت');
-        $response->assertSee('د. عزت الفيل');
-        $response->assertSee('م. بولا الفيل');
-        $response->assertSee('أبانوب مجدي');
+        $response->assertSee('تسجيل الدخول للنظام');
+        $response->assertDontSee('الدخول السريع');
+        $response->assertDontSee('secret123');
     }
 
     /**
-     * 2. Test Fast Login works and authenticates every single manager without any session error
+     * 2. Test Standard Password Login works and Fast Login is disabled in production
      */
-    public function test_fast_login_authenticates_owner(): void
+    public function test_standard_login_authenticates_owner_and_fast_login_disabled(): void
     {
         $owner = User::where('role', 'owner')->first();
-        $response = $this->post('/login/fast', ['user_id' => $owner->id]);
+        $this->post('/login/fast', ['user_id' => $owner->id])->assertStatus(403);
+
+        $response = $this->post('/login', [
+            'email' => $owner->email,
+            'password' => 'Alfa@2026',
+        ]);
 
         $response->assertRedirect('/dashboard');
         $this->assertAuthenticatedAs($owner);
     }
 
-    public function test_fast_login_works_flawlessly_for_all_eight_roles_without_errors(): void
+    public function test_standard_login_works_flawlessly_for_all_roles_without_role_switcher(): void
     {
         $allUsers = User::where('status', true)->get();
         $this->assertGreaterThanOrEqual(8, $allUsers->count());
 
         foreach ($allUsers as $u) {
-            // Test 1-click GET fast login
-            $response = $this->get('/login/fast/'.$u->id);
+            // Fast login GET must be blocked
+            $this->get('/login/fast/'.$u->id)->assertStatus(403);
+
+            // Standard email/password login works
+            $response = $this->post('/login', [
+                'email' => $u->email,
+                'password' => 'Alfa@2026',
+            ]);
             $response->assertRedirect('/dashboard');
             $response->assertSessionMissing('error');
-            $response->assertSessionHas('success');
             $this->assertAuthenticatedAs($u);
 
-            // Follow the redirect to dashboard
+            // Follow the redirect to dashboard and verify role switcher is removed
             $dashResponse = $this->get('/dashboard');
             $dashResponse->assertStatus(200);
             $dashResponse->assertSessionMissing('error');
             $dashResponse->assertSee($u->name);
+            $dashResponse->assertDontSee('التحويل السريع للدور');
+
+            $this->post('/logout');
         }
     }
 
@@ -140,7 +153,19 @@ class AlfaErpEndToEndTest extends TestCase
         // 0.90 + 0.24 + 0.06 + 0.28 + 0.18 = 1.66
         $this->assertEqualsWithDelta(1.66, $cost, 0.01);
 
-        // Check loss orders
+        // Create a loss-alarm sales order within the test transaction
+        $customer = Customer::first();
+        $lossOrder = SalesOrder::create([
+            'order_number' => 'SO-LOSS-TEST-01',
+            'customer_id' => $customer->id,
+            'sales_rep_id' => User::where('role', 'sales')->first()->id,
+            'order_date' => now()->toDateString(),
+            'status' => 'pending_operations',
+            'total_amount' => 1000,
+            'estimated_cost' => 1500,
+            'has_loss_alarm' => true,
+        ]);
+
         $lossOrders = SalesOrder::where('has_loss_alarm', true)->get();
         $this->assertTrue($lossOrders->count() > 0);
 
@@ -209,12 +234,19 @@ class AlfaErpEndToEndTest extends TestCase
         }
 
         // 5. Sales Invoice
-        $order = SalesOrder::first();
-        if ($order) {
-            $resp = $this->actingAs($gm)->get('/print/sales-invoice/'.$order->id);
-            $resp->assertStatus(200);
-            $resp->assertSee($order->order_number);
-        }
+        $order = SalesOrder::first() ?? SalesOrder::create([
+            'order_number' => 'SO-PRINT-TEST-01',
+            'customer_id' => Customer::first()->id,
+            'sales_rep_id' => User::where('role', 'sales')->first()->id,
+            'order_date' => now()->toDateString(),
+            'status' => 'pending_operations',
+            'total_amount' => 2000,
+            'estimated_cost' => 1500,
+            'has_loss_alarm' => false,
+        ]);
+        $resp = $this->actingAs($gm)->get('/print/sales-invoice/'.$order->id);
+        $resp->assertStatus(200);
+        $resp->assertSee($order->order_number);
     }
 
     /**

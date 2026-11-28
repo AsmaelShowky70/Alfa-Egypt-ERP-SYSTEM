@@ -39,64 +39,60 @@
 </head>
 <body class="bg-gradient-to-br from-black via-zinc-950 to-neutral-900 min-h-screen text-slate-800 flex items-center justify-center p-4 selection:bg-red-600 selection:text-white">
 
-    <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-6">
+    <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-6">
 
-        <!-- Left / Top Info: Fast Role Selection Cards (دخول سريع وتجربة الأدوار) -->
-        <div class="lg:col-span-7 space-y-6">
-            <div class="space-y-3 text-white">
-                <div class="inline-flex items-center gap-2 bg-red-600/10 text-red-400 border border-red-500/30 px-3.5 py-1.5 rounded-full text-xs font-bold">
-                    <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                    نظام ERP المتخصص في تصنيع الكوڤير والتعبئة والتغليف
-                </div>
-                <div class="flex items-center gap-3">
-                    <img src="{{ asset('images/alpha_symbol_nav.png') }}" alt="Alfa Symbol" class="h-12 w-auto object-contain hidden sm:block">
-                    <div>
-                        <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-white leading-tight">
-                            شركة الفا ايجبت للصناعات المتطورة
-                        </h1>
-                        <p class="text-xs font-bold text-red-500 tracking-wider">ALPHA EGYPT FOR MODERN PACKAGING INDUSTRIES</p>
-                    </div>
-                </div>
-                <p class="text-zinc-300 text-sm max-w-xl leading-relaxed">
-                    منظومة متكاملة لربط دورة المبيعات مع أوامر التشغيل، المخازن المركزية، المشتريات، مراكز تكلفة المصانع الـ 6 المستقلة بهامش 14%، وتقارير الماكينات اللحظية.
-                </p>
+        <!-- Brand & System Overview -->
+        <div class="lg:col-span-6 space-y-6 text-white">
+            <div class="inline-flex items-center gap-2 bg-red-600/10 text-red-400 border border-red-500/30 px-3.5 py-1.5 rounded-full text-xs font-bold">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                بيئة التشغيل الفعلية - مصانع ألفا إيجبت
             </div>
 
-            <!-- Fast Click Login Cards (الأدوار الفعلية للمديرين) -->
-            <div class="bg-zinc-900/90 backdrop-blur-md border border-zinc-800 p-5 rounded-3xl shadow-2xl space-y-3">
-                <div class="flex items-center justify-between text-white border-b border-zinc-800 pb-2">
-                    <span class="text-xs font-bold flex items-center gap-2">
-                        <i class="fa-solid fa-users text-red-500"></i>
-                        الدخول السريع بحسابات الإدارة والمديرين (نقرة واحدة للتجربة):
-                    </span>
-                    <span class="text-[11px] text-red-300 bg-red-950/80 border border-red-800/50 px-2.5 py-0.5 rounded-full font-bold">{{ $users->count() }} حسابات مخصصة</span>
+            <div class="flex items-center gap-3">
+                <img src="{{ asset('images/alpha_symbol_nav.png') }}" alt="Alfa Symbol" class="h-14 w-auto object-contain hidden sm:block">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-white leading-tight">
+                        شركة الفا ايجبت للصناعات المتطورة
+                    </h1>
+                    <p class="text-xs font-bold text-red-500 tracking-wider mt-1">ALPHA EGYPT FOR MODERN PACKAGING INDUSTRIES</p>
                 </div>
+            </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[380px] overflow-y-auto pr-1">
-                    @foreach($users as $user)
-                        <a href="{{ route('login.fast', $user->id) }}" class="w-full text-right bg-zinc-950/80 hover:bg-black text-white p-2.5 rounded-2xl border border-zinc-800 hover:border-red-600/80 shadow-sm hover:shadow-lg hover:shadow-red-950/40 transition flex items-center gap-3 group">
-                            <img src="{{ $user->avatar_url }}" alt="{{ $user->name }}" class="w-11 h-11 rounded-xl object-cover border border-zinc-700 shadow-sm flex-shrink-0 group-hover:border-red-500 transition">
-                            <div class="overflow-hidden flex-1">
-                                <div class="font-extrabold text-xs text-zinc-100 truncate group-hover:text-red-400 transition">{{ $user->name }}</div>
-                                <div class="text-[11px] font-semibold text-red-400 truncate">{{ $user->job_title }}</div>
-                                <div class="text-[10px] text-zinc-400 truncate">{{ $user->department }}</div>
-                            </div>
-                            <i class="fa-solid fa-arrow-left text-xs text-zinc-600 group-hover:text-red-500 transition ml-1"></i>
-                        </a>
-                    @endforeach
+            <p class="text-zinc-300 text-sm leading-relaxed">
+                منظومة ERP المتكاملة لإدارة دورة العمل الكاملة: المبيعات والعملاء، أوامر التشغيل والإنتاج، المخازن المركزية والجرد بالصور، المشتريات والتوريد الداخلي (+14%)، مراكز ربحية المصانع الـ 6، الحسابات المالية، ومتابعة الماكينات لحظة بلحظة.
+            </p>
+
+            <div class="grid grid-cols-2 gap-3 pt-2 text-xs">
+                <div class="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-3.5 flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-red-600/20 text-red-400 flex items-center justify-center">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-zinc-100">دخول آمن ومخصص</div>
+                        <div class="text-[11px] text-zinc-400">صلاحيات مستقلة لكل إدارة</div>
+                    </div>
+                </div>
+                <div class="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-3.5 flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
+                        <i class="fa-solid fa-industry"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-zinc-100">6 مصانع متكاملة</div>
+                        <div class="text-[11px] text-zinc-400">تسعير +14% ومراقبة ربحية</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Right / Bottom: Traditional Login Box -->
-        <div class="lg:col-span-5">
+        <!-- Login Form Box -->
+        <div class="lg:col-span-6">
             <div class="bg-white rounded-3xl shadow-2xl p-8 border-t-4 border-red-600 border-x border-b border-zinc-100 space-y-6 relative overflow-hidden">
                 <div class="text-center space-y-2">
                     <div class="flex justify-center">
                         <img src="{{ asset('images/alpha_logo_login.png') }}" alt="Alfa Egypt" class="h-28 w-auto object-contain">
                     </div>
                     <h2 class="text-xl font-black text-zinc-950 pt-1">تسجيل الدخول للنظام</h2>
-                    <p class="text-xs text-zinc-500 font-medium">أدخل البريد الإلكتروني وكلمة المرور الخاصة بك</p>
+                    <p class="text-xs text-zinc-500 font-medium">أدخل البريد الإلكتروني وكلمة المرور الخاصة بحسابك</p>
                 </div>
 
                 @if($errors->any())
@@ -107,24 +103,33 @@
                     </div>
                 @endif
 
+                @if(session('error'))
+                    <div class="bg-red-50 border-r-4 border-red-600 p-3 rounded-xl text-xs text-red-800 font-semibold">
+                        {{ session('error') }}
+                    </div>
+                @endif
+
+                @if(session('info'))
+                    <div class="bg-blue-50 border-r-4 border-blue-600 p-3 rounded-xl text-xs text-blue-800 font-semibold">
+                        {{ session('info') }}
+                    </div>
+                @endif
+
                 <form action="{{ route('login.post') }}" method="POST" class="space-y-4">
                     @csrf
                     <div>
                         <label class="block text-xs font-bold text-zinc-700 mb-1">البريد الإلكتروني</label>
                         <div class="relative">
                             <i class="fa-solid fa-envelope absolute right-3 top-3.5 text-zinc-400 text-sm"></i>
-                            <input type="email" name="email" value="{{ old('email', 'ezzat@alphaegypt.com') }}" required class="w-full pr-10 pl-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:bg-white outline-none transition" placeholder="name@alphaegypt.com">
+                            <input type="email" name="email" value="{{ old('email') }}" required autocomplete="email" class="w-full pr-10 pl-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:bg-white outline-none transition" placeholder="name@alphaegypt.com">
                         </div>
                     </div>
 
                     <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="block text-xs font-bold text-zinc-700">كلمة المرور</label>
-                            <span class="text-[11px] text-zinc-400 font-medium">(الافتراضي: secret123)</span>
-                        </div>
+                        <label class="block text-xs font-bold text-zinc-700 mb-1">كلمة المرور</label>
                         <div class="relative">
                             <i class="fa-solid fa-lock absolute right-3 top-3.5 text-zinc-400 text-sm"></i>
-                            <input type="password" name="password" value="secret123" required class="w-full pr-10 pl-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:bg-white outline-none transition" placeholder="••••••••">
+                            <input type="password" name="password" required autocomplete="current-password" class="w-full pr-10 pl-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:bg-white outline-none transition" placeholder="••••••••">
                         </div>
                     </div>
 

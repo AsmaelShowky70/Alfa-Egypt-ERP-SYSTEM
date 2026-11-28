@@ -129,38 +129,10 @@
                     </a>
                 @endif
 
-                <!-- Fast Role Switcher Dropdown (for quick testing of any department) -->
-                <div class="relative" id="fastSwitcherDropdown">
-                    <button id="fastSwitcherBtn" type="button" class="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-xs px-3 py-1.5 rounded-lg border border-neutral-700 text-slate-200 transition cursor-pointer select-none">
-                        <i class="fa-solid fa-repeat text-red-500"></i>
-                        <span class="hidden md:inline">التحويل السريع للدور:</span>
-                        <span class="font-bold text-white">{{ Auth::user()->role_arabic_name }}</span>
-                        <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                    </button>
-                    <div id="fastSwitcherMenu" class="dropdown-menu-custom absolute left-0 top-full pt-1.5 w-64 hidden z-50 text-slate-800">
-                        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 py-2">
-                            <div class="px-3 py-1 text-[11px] font-bold text-slate-400 border-b border-slate-100 mb-1">
-                                تبديل حساب المستخدم (تجربة فورية)
-                            </div>
-                            @php
-                                $allSystemUsers = \App\Models\User::where('status', true)->get();
-                            @endphp
-                            @foreach($allSystemUsers as $u)
-                                <a href="{{ route('login.fast', $u->id) }}" class="w-full text-right px-3 py-2 text-xs flex items-center justify-between hover:bg-red-50 transition {{ $u->id === Auth::id() ? 'bg-red-50 font-bold text-red-700' : 'text-slate-700' }}">
-                                    <div class="flex items-center gap-2">
-                                        <img src="{{ $u->avatar_url }}" class="w-6 h-6 rounded-full object-cover border border-slate-200">
-                                        <div>
-                                            <div class="leading-tight">{{ $u->name }}</div>
-                                            <div class="text-[10px] text-slate-400">{{ $u->job_title }}</div>
-                                        </div>
-                                    </div>
-                                    @if($u->id === Auth::id())
-                                        <i class="fa-solid fa-check text-red-600 text-xs"></i>
-                                    @endif
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
+                <!-- Role Badge (Production Mode - Role Switching Disabled) -->
+                <div class="hidden md:flex items-center gap-2 bg-neutral-900 text-xs px-3 py-1.5 rounded-lg border border-neutral-800 text-slate-200">
+                    <i class="fa-solid fa-user-shield text-red-500"></i>
+                    <span class="font-bold text-white">{{ Auth::user()->role_arabic_name }}</span>
                 </div>
 
                 <!-- User Dropdown -->

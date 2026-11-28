@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,9 +15,8 @@ class AuthController extends Controller
         if (Auth::check()) {
             return redirect()->route('dashboard');
         }
-        $users = User::where('status', true)->get();
 
-        return view('auth.login', compact('users'));
+        return view('auth.login');
     }
 
     public function login(Request $request): RedirectResponse
@@ -43,21 +41,7 @@ class AuthController extends Controller
 
     public function fastLogin(Request $request, $id = null): RedirectResponse
     {
-        $userId = $id ?? $request->input('user_id') ?? $request->query('user_id');
-
-        if (! $userId) {
-            return redirect()->route('login')->with('error', 'يرجى اختيار المستخدم لتسجيل الدخول.');
-        }
-
-        $user = User::findOrFail($userId);
-        Auth::login($user);
-
-        // Clear any intended URL and prior error flash from previous role
-        $request->session()->forget('url.intended');
-        $request->session()->forget('error');
-        $request->session()->regenerate();
-
-        return redirect()->route('dashboard')->with('success', 'تم الدخول بنجاح بحساب: '.$user->name.' ('.$user->role_arabic_name.')');
+        abort(403, 'تم إيقاف الدخول السريع وتبديل الأدوار في بيئة التشغيل الفعلية. يرجى تسجيل الدخول بالبريد الإلكتروني وكلمة المرور.');
     }
 
     public function logout(Request $request): RedirectResponse

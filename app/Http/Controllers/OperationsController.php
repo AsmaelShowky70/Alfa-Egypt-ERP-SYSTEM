@@ -896,6 +896,21 @@ class OperationsController extends Controller
             ]);
         } else {
             $productionOrder = ProductionOrder::latest()->first();
+            if (! $productionOrder) {
+                $factory = Factory::where('code', 'FAC-COUVERT')->first() ?? Factory::first();
+                $woNumber = 'WO-DIR-'.date('Y').'-'.str_pad((ProductionOrder::count() + 1), 3, '0', STR_PAD_LEFT);
+                $productionOrder = ProductionOrder::create([
+                    'order_number' => $woNumber,
+                    'sales_order_id' => null,
+                    'factory_id' => $factory?->id,
+                    'product_id' => Product::first()?->id,
+                    'planned_quantity' => 1,
+                    'produced_quantity' => 0,
+                    'status' => 'ready',
+                    'operations_manager_id' => Auth::id(),
+                    'instructions' => $validated['notes'] ?? 'أمر تشغيل مباشر لصرف خامات',
+                ]);
+            }
         }
 
         $mrNumber = 'MR-'.date('Y').'-'.str_pad((MaterialRequisition::count() + 1), 3, '0', STR_PAD_LEFT);

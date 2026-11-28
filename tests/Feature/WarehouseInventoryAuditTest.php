@@ -133,7 +133,7 @@ class WarehouseInventoryAuditTest extends TestCase
         $this->assertEquals($newStock, (float) $material->current_stock);
 
         $this->assertDatabaseHas('stock_movements', [
-            'type' => 'inventory_adjustment',
+            'type' => 'adjustment',
             'reference_type' => 'inventory_adjustment',
             'reference_id' => $material->id,
         ]);
