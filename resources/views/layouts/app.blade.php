@@ -489,7 +489,7 @@
                     @if(Auth::user()->email === 'fadi@alphaegypt.com' || Auth::user()->isMaintenance())
                     <a href="{{ route('tasks.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('tasks*') ? 'bg-purple-50 text-purple-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
                         <i class="fa-solid fa-business-time text-purple-600"></i>
-                        <span>تكليفات مكن الجوانتي (عمل إضافي)</span>
+                        <span>متابعة إنتاجية مكن الجوانتي</span>
                     </a>
                     @endif
                 </div>

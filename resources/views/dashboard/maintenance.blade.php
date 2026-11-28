@@ -134,12 +134,17 @@
             </div>
         </div>
 
-        <!-- Today's Glove Reports Table -->
-        @if($gloveHourlyReportsToday->isNotEmpty())
+        <!-- Today's Glove Reports Table (Always visible like Wipes Supervisor) -->
         <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
             <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-800">تقارير ساعات إنتاج الجوانتي لليوم ({{ $gloveHourlyReportsToday->count() }})</span>
-                <span class="text-[10px] text-slate-500 font-medium">سجل المتابعة الإنتاجية اللحظي</span>
+                <div>
+                    <span class="text-xs font-black text-slate-800 block">سجل تقارير الساعات اليومية لماكينات الجوانتي ({{ $gloveHourlyReportsToday->count() }} تقرير)</span>
+                    <span class="text-[10px] text-slate-500 font-medium">متابعة الإنتاج الفعلي، سرعة الماكينات، الكفاءة ونسب الهدر لماكينتي القص والتغليف</span>
+                </div>
+                <button type="button" onclick="openGloveHourlyModal()" class="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>إضافة ساعة جديدة</span>
+                </button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-right text-xs">
@@ -148,16 +153,17 @@
                             <th class="py-2.5 px-3">الماكينة</th>
                             <th class="py-2.5 px-3">الساعة</th>
                             <th class="py-2.5 px-3">الوردية</th>
-                            <th class="py-2.5 px-3">الإنتاج</th>
-                            <th class="py-2.5 px-3">السرعة</th>
+                            <th class="py-2.5 px-3">الإنتاج الفعلي</th>
+                            <th class="py-2.5 px-3">سرعة السير</th>
                             <th class="py-2.5 px-3">الكفاءة</th>
                             <th class="py-2.5 px-3">الهدر</th>
-                            <th class="py-2.5 px-3">الملاحظات</th>
+                            <th class="py-2.5 px-3">التوقف (دقيقة)</th>
+                            <th class="py-2.5 px-3">ملاحظات التشغيل</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        @foreach($gloveHourlyReportsToday as $grep)
-                        <tr>
+                        @forelse($gloveHourlyReportsToday as $grep)
+                        <tr class="hover:bg-slate-50/80 transition">
                             <td class="py-2.5 px-3 font-bold text-slate-800">{{ $grep->machine->name }}</td>
                             <td class="py-2.5 px-3 font-mono font-semibold">{{ $grep->hour_slot }}</td>
                             <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] {{ $grep->shift_badge_class }}">{{ $grep->shift_label }}</span></td>
@@ -165,14 +171,20 @@
                             <td class="py-2.5 px-3 font-mono">{{ $grep->belt_speed_m_min }} م/د</td>
                             <td class="py-2.5 px-3 font-mono font-bold text-blue-600">{{ number_format($grep->efficiency_rate, 1) }}%</td>
                             <td class="py-2.5 px-3 font-mono text-rose-600">{{ $grep->waste_units }}</td>
+                            <td class="py-2.5 px-3 font-mono text-amber-600">{{ $grep->downtime_minutes }} د</td>
                             <td class="py-2.5 px-3 text-slate-600 truncate max-w-xs">{{ $grep->actions_taken ?? 'تشغيل منتظم' }}</td>
                         </tr>
-                        @endforeach
+                        @empty
+                        <tr>
+                            <td colspan="9" class="py-8 text-center text-slate-400">
+                                لا توجد تقارير ساعات مسجلة لماكينتي الجوانتي لليوم حتى الآن. انقر على "تسجيل تقرير إنتاج ساعة للجوانتي" للبدء.
+                            </td>
+                        </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
-        @endif
     </div>
 
     <!-- Quick Modal: Add Glove Hourly Report -->

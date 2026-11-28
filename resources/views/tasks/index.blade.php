@@ -185,7 +185,13 @@
                         <div>
                             <span class="text-[10px] text-purple-600 font-bold block">المسؤول المكلف</span>
                             <span class="font-extrabold text-slate-900 block text-sm">{{ $task->assignedTo->name }}</span>
-                            <span class="text-[11px] text-slate-500 font-medium">{{ $task->assignedTo->job_title }}</span>
+                            <span class="text-[11px] text-slate-500 font-medium">
+                                @if($task->task_type === 'overtime' && str_contains($task->title, 'متابعة إنتاجية'))
+                                    متابعة إنتاجية مكنتي الجوانتي (عمل إضافي من التشغيل)
+                                @else
+                                    {{ $task->assignedTo->job_title }}
+                                @endif
+                            </span>
                         </div>
                     </div>
 
