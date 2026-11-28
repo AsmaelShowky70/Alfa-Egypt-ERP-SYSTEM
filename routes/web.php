@@ -9,6 +9,7 @@ use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\PrintController;
 use App\Http\Controllers\PurchasingController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\TaskAssignmentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
@@ -129,6 +130,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/suppliers', [PurchasingController::class, 'suppliers'])->name('suppliers');
         Route::post('/suppliers', [PurchasingController::class, 'storeSupplier'])->name('suppliers.store');
+        Route::put('/suppliers/{supplier}', [PurchasingController::class, 'updateSupplier'])->name('suppliers.update');
     });
 
     // 5. Finance, Accounts & Cost Centers Department
@@ -201,5 +203,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/purchase-order/{purchaseOrder}', [PrintController::class, 'purchaseOrder'])->name('purchaseOrder');
         Route::get('/daily-check/{dailyCheck}', [PrintController::class, 'dailyInventoryCheck'])->name('dailyCheck');
         Route::get('/sales-invoice/{order}', [PrintController::class, 'salesInvoice'])->name('salesInvoice');
+    });
+
+    // 10. Task Assignments & Overtime Management (المهام والتكليفات الإضافية وتقارير المتابعة)
+    Route::prefix('tasks')->name('tasks.')->group(function () {
+        Route::get('/', [TaskAssignmentController::class, 'index'])->name('index');
+        Route::post('/', [TaskAssignmentController::class, 'store'])->name('store');
+        Route::put('/{task}', [TaskAssignmentController::class, 'update'])->name('update');
+        Route::post('/{task}/follow-ups', [TaskAssignmentController::class, 'storeFollowUp'])->name('follow-ups.store');
     });
 });

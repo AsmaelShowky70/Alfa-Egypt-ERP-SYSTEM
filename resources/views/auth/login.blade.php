@@ -69,7 +69,7 @@
                         <i class="fa-solid fa-users text-red-500"></i>
                         الدخول السريع بحسابات الإدارة والمديرين (نقرة واحدة للتجربة):
                     </span>
-                    <span class="text-[11px] text-red-300 bg-red-950/80 border border-red-800/50 px-2.5 py-0.5 rounded-full font-bold">8 أدوار مخصصة</span>
+                    <span class="text-[11px] text-red-300 bg-red-950/80 border border-red-800/50 px-2.5 py-0.5 rounded-full font-bold">{{ $users->count() }} حسابات مخصصة</span>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[380px] overflow-y-auto pr-1">

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -114,5 +115,20 @@ class User extends Authenticatable
         }
 
         return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=008060&color=fff&size=128';
+    }
+
+    public function assignedTasks(): HasMany
+    {
+        return $this->hasMany(TaskAssignment::class, 'assigned_to_user_id');
+    }
+
+    public function createdTasks(): HasMany
+    {
+        return $this->hasMany(TaskAssignment::class, 'assigned_by_user_id');
+    }
+
+    public function taskFollowUps(): HasMany
+    {
+        return $this->hasMany(TaskFollowUp::class);
     }
 }

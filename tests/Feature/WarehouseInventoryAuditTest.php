@@ -9,10 +9,13 @@ use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class WarehouseInventoryAuditTest extends TestCase
 {
+    use DatabaseTransactions;
+
     protected User $warehouseUser;
 
     protected User $purchasingUser;

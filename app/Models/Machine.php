@@ -44,4 +44,9 @@ class Machine extends Model
     {
         return $this->hasMany(ProductionOrder::class);
     }
+
+    public function taskAssignments(): HasMany
+    {
+        return $this->hasMany(TaskAssignment::class);
+    }
 }

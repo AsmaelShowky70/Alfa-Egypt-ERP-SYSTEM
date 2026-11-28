@@ -119,7 +119,7 @@ class FinanceAccountingDeepTest extends TestCase
         $this->assertEquals(280241.00, (float) $remon->opening_balance);
 
         // Supplier with Advance Deposit: حمزة السوري (-110,000 EGP)
-        $hamza = Supplier::where('name', 'like', '%حمزة%')->first();
+        $hamza = Supplier::where('name', 'like', '%حمزة السوري%')->first();
         $this->assertNotNull($hamza, 'Supplier حمزة السوري must exist');
         $this->assertEquals(-110000.00, (float) $hamza->opening_balance);
         $this->assertLessThan(0, $hamza->current_balance);

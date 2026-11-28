@@ -10,9 +10,13 @@
             <p class="text-sm text-slate-500 mt-1">التحكم في حسابات الإدارة العليا ومديري الأقسام والصلاحيات وكلمات المرور</p>
         </div>
         <div class="flex items-center gap-2">
+            <a href="{{ route('tasks.index') }}" class="px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-purple-200">
+                <i class="fa-solid fa-list-check"></i>
+                <span>المهام والتكليفات الإضافية</span>
+            </a>
             <a href="{{ route('users.create') }}" class="btn-primary flex items-center gap-2">
                 <i class="fa-solid fa-user-plus"></i>
-                <span>إضافة حساب مدير جديد</span>
+                <span>إضافة موظف / مهندس جديد</span>
             </a>
         </div>
     </div>
@@ -130,6 +134,9 @@
                         </td>
                         <td class="py-4 px-6 text-center">
                             <div class="flex items-center justify-center gap-2">
+                                <a href="{{ route('tasks.index', ['assigned_to' => $userItem->id]) }}" title="عرض وتكليف مهام للمستخدم" class="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200">
+                                    <i class="fa-solid fa-list-check"></i>
+                                </a>
                                 <a href="{{ route('users.edit', $userItem->id) }}" title="تعديل الحساب والصلاحيات" class="p-2 text-slate-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors border border-slate-200">
                                     <i class="fa-solid fa-user-pen"></i>
                                 </a>

@@ -426,4 +426,22 @@ class PurchasingController extends Controller
 
         return back()->with('success', 'تم إضافة المورد الجديد بنجاح.');
     }
+
+    public function updateSupplier(Request $request, Supplier $supplier): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'contact_person' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
+            'address' => 'nullable|string',
+            'average_lead_time_days' => 'required|integer|min:1',
+            'notes' => 'nullable|string',
+        ]);
+
+        $supplier->update($validated);
+
+        return back()->with('success', 'تم تحديث بيانات المورد ('.$supplier->name.') بنجاح.');
+    }
 }
