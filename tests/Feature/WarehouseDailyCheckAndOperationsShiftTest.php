@@ -69,9 +69,12 @@ class WarehouseDailyCheckAndOperationsShiftTest extends TestCase
         $gm = User::where('role', 'gm')->first();
         $regularUser = User::where('role', 'sales')->first();
 
-        $rawMaterial = RawMaterial::first();
+        // Ensure BOM materials remain stable
+        RawMaterial::where('code', 'RM-SPOON-ENG')->update(['unit_cost' => 0.9000]);
+
+        $rawMaterial = RawMaterial::where('code', 'RM-PE-FILM-GLOVE')->first() ?? RawMaterial::first();
         $originalCost = (float) $rawMaterial->unit_cost;
-        $product = Product::first();
+        $product = Product::where('code', 'PROD-INV-001')->first() ?? Product::first();
         $originalProdCost = (float) $product->cost_price;
         $originalProdSell = (float) $product->selling_price;
         $originalMinSell = (float) $product->min_selling_price;

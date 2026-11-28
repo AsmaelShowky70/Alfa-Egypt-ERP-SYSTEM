@@ -105,7 +105,9 @@ class Product extends Model
             return $this->image;
         }
         if ($this->image) {
-            return asset($this->image);
+            $cleanPath = ltrim(str_replace('\\', '/', $this->image), '/');
+
+            return asset($cleanPath);
         }
 
         return 'https://placehold.co/400x300/e2ede9/008060?text='.urlencode($this->name);

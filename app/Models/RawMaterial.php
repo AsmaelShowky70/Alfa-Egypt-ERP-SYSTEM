@@ -56,8 +56,15 @@ class RawMaterial extends Model
 
     public function getImageUrlAttribute(): string
     {
-        if ($this->image && file_exists(public_path($this->image))) {
-            return asset($this->image);
+        if ($this->image && (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://'))) {
+            return $this->image;
+        }
+
+        if ($this->image) {
+            $cleanPath = ltrim(str_replace('\\', '/', $this->image), '/');
+            if (file_exists(public_path($cleanPath)) || str_starts_with($cleanPath, 'uploads/') || str_starts_with($cleanPath, 'images/')) {
+                return asset($cleanPath);
+            }
         }
 
         return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=f59e0b&color=fff&size=256';

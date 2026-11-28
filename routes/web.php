@@ -70,6 +70,8 @@ Route::middleware('auth')->group(function () {
     // 3. Central Warehouse Department
     Route::middleware('role:warehouse,maintenance,owner,gm')->prefix('warehouse')->name('warehouse.')->group(function () {
         Route::get('/spare-parts', [WarehouseController::class, 'spareParts'])->name('spareParts');
+        Route::post('/spare-parts', [WarehouseController::class, 'storeSparePart'])->name('spareParts.store');
+        Route::put('/spare-parts/{sparePart}', [WarehouseController::class, 'updateSparePart'])->name('spareParts.update');
     });
 
     Route::middleware('role:warehouse,owner,gm')->prefix('warehouse')->name('warehouse.')->group(function () {

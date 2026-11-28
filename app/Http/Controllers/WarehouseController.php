@@ -572,10 +572,89 @@ class WarehouseController extends Controller
 
     public function spareParts(): View
     {
-        $spareParts = RawMaterial::where('category', 'spare_part')->with('supplier')->latest()->paginate(20);
+        $spareParts = RawMaterial::where('category', 'spare_part')->with('supplier')->latest('id')->paginate(20);
         $suppliers = Supplier::where('category', 'قطع غيار')->orWhere('status', true)->get();
 
         return view('warehouse.spare_parts', compact('spareParts', 'suppliers'));
+    }
+
+    public function storeSparePart(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'unit' => 'required|string|max:50',
+            'current_stock' => 'required|numeric|min:0',
+            'reorder_level' => 'required|numeric|min:0',
+            'unit_cost' => 'required|numeric|min:0',
+            'warehouse_location' => 'nullable|string|max:100',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = 'sp_'.time().'_'.Str::random(6).'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/spare_parts'), $filename);
+            $imagePath = 'uploads/spare_parts/'.$filename;
+        }
+
+        $nextId = (int) (RawMaterial::where('category', 'spare_part')->max('id') ?? 0) + 1;
+        do {
+            $code = 'SP-'.str_pad($nextId, 4, '0', STR_PAD_LEFT);
+            $nextId++;
+        } while (RawMaterial::where('code', $code)->exists());
+
+        RawMaterial::create([
+            'code' => $code,
+            'name' => $validated['name'],
+            'category' => 'spare_part',
+            'unit' => $validated['unit'],
+            'current_stock' => $validated['current_stock'],
+            'reorder_level' => $validated['reorder_level'],
+            'unit_cost' => $validated['unit_cost'],
+            'warehouse_location' => $validated['warehouse_location'] ?? 'دولاب قطع الغيار',
+            'supplier_id' => $validated['supplier_id'] ?? null,
+            'image' => $imagePath,
+            'status' => true,
+        ]);
+
+        return back()->with('success', 'تمت إضافة قطعة الغيار الجديدة ('.$validated['name'].') للمخزن بكود ('.$code.') بنجاح.');
+    }
+
+    public function updateSparePart(Request $request, RawMaterial $sparePart): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'unit' => 'required|string|max:50',
+            'current_stock' => 'required|numeric|min:0',
+            'reorder_level' => 'required|numeric|min:0',
+            'unit_cost' => 'required|numeric|min:0',
+            'warehouse_location' => 'nullable|string|max:100',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $imagePath = $sparePart->image;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = 'sp_'.time().'_'.Str::random(6).'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('uploads/spare_parts'), $filename);
+            $imagePath = 'uploads/spare_parts/'.$filename;
+        }
+
+        $sparePart->update([
+            'name' => $validated['name'],
+            'unit' => $validated['unit'],
+            'current_stock' => $validated['current_stock'],
+            'reorder_level' => $validated['reorder_level'],
+            'unit_cost' => $validated['unit_cost'],
+            'warehouse_location' => $validated['warehouse_location'] ?? $sparePart->warehouse_location,
+            'supplier_id' => $validated['supplier_id'] ?? $sparePart->supplier_id,
+            'image' => $imagePath,
+        ]);
+
+        return back()->with('success', 'تم تحديث بيانات قطعة الغيار ('.$sparePart->name.') بنجاح.');
     }
 
     // ================= MATERIAL REQUISITIONS FROM OPERATIONS =================

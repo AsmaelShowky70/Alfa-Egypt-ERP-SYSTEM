@@ -193,4 +193,55 @@ class WarehouseInventoryAuditTest extends TestCase
             'status' => 'posted',
         ]);
     }
+
+    /**
+     * 6. Spare Parts Management (Add, Edit, and Image Upload from Warehouse)
+     */
+    public function test_spare_parts_page_and_creation_and_update(): void
+    {
+        $response = $this->actingAs($this->warehouseUser)->get(route('warehouse.spareParts'));
+        $response->assertStatus(200);
+        $response->assertSee('مخزن قطع الغيار ومستلزمات صيانة الماكينات');
+        $response->assertSee('إضافة قطعة غيار جديدة');
+
+        // Store new spare part
+        $storeResponse = $this->actingAs($this->warehouseUser)->post(route('warehouse.spareParts.store'), [
+            'name' => 'سير سحب كوفير حراري 300 مم تجريبي',
+            'unit' => 'متر',
+            'current_stock' => 15,
+            'reorder_level' => 5,
+            'unit_cost' => 450.00,
+            'warehouse_location' => 'دولاب قطع الغيار - رف 4',
+        ]);
+
+        $storeResponse->assertRedirect();
+        $this->assertDatabaseHas('raw_materials', [
+            'name' => 'سير سحب كوفير حراري 300 مم تجريبي',
+            'category' => 'spare_part',
+            'unit' => 'متر',
+            'current_stock' => 15,
+        ]);
+
+        $sparePart = RawMaterial::where('name', 'سير سحب كوفير حراري 300 مم تجريبي')->first();
+        $this->assertNotNull($sparePart);
+        $this->assertStringStartsWith('SP-', $sparePart->code);
+
+        // Update spare part
+        $updateResponse = $this->actingAs($this->warehouseUser)->put(route('warehouse.spareParts.update', $sparePart->id), [
+            'name' => 'سير سحب كوفير حراري 300 مم تجريبي - محدث',
+            'unit' => 'متر',
+            'current_stock' => 20,
+            'reorder_level' => 6,
+            'unit_cost' => 500.00,
+            'warehouse_location' => 'دولاب قطع الغيار - رف 5',
+        ]);
+
+        $updateResponse->assertRedirect();
+        $this->assertDatabaseHas('raw_materials', [
+            'id' => $sparePart->id,
+            'name' => 'سير سحب كوفير حراري 300 مم تجريبي - محدث',
+            'current_stock' => 20,
+            'unit_cost' => 500.00,
+        ]);
+    }
 }

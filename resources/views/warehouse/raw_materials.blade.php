@@ -3,48 +3,7 @@
 @section('title', 'المواد الخام ومستلزمات الكوڤير (المخزن المركزي)')
 
 @section('content')
-<div class="space-y-6" x-data="{
-    showAddModal: false,
-    showEditModal: false,
-    showAdjustModal: false,
-    showPricingModal: false,
-    showZoomModal: false,
-    zoomImage: '',
-    zoomTitle: '',
-    editItem: { id: '', name: '', category: '', unit: '', current_stock: 0, reorder_level: 0, unit_cost: 0, package_info: '', warehouse_location: '', supplier_id: '', source_factory_id: '' },
-    adjustItem: { id: '', name: '', unit: '', current_stock: 0, new_stock: 0, reason: '', notes: '' },
-    pricingItem: { id: '', name: '', unit: '', unit_cost: 0 },
-    openEdit(item) {
-        this.editItem = { ...item };
-        this.showEditModal = true;
-    },
-    openAdjust(item) {
-        this.adjustItem = {
-            id: item.id,
-            name: item.name,
-            unit: item.unit,
-            current_stock: item.current_stock,
-            new_stock: item.current_stock,
-            reason: 'جرد فعلي للمخزن',
-            notes: ''
-        };
-        this.showAdjustModal = true;
-    },
-    openPricing(item) {
-        this.pricingItem = {
-            id: item.id,
-            name: item.name,
-            unit: item.unit,
-            unit_cost: item.unit_cost
-        };
-        this.showPricingModal = true;
-    },
-    openZoom(img, title) {
-        this.zoomImage = img;
-        this.zoomTitle = title;
-        this.showZoomModal = true;
-    }
-}">
+<div class="space-y-6">
 
     <!-- Top Management Pricing Authority Banner (دكتور عزت وم. بولا) -->
     @if(Auth::user()->isOwner() || Auth::user()->isGM())
@@ -82,7 +41,7 @@
             <p class="text-xs text-slate-500 mt-1">عرض دقيق لرصيد المخزن الفعلي بالصور الحية، أوزان الرولات بالكيلو، مستلزمات الحقن، والورقيات بالبالة</p>
         </div>
         <div class="flex items-center gap-2">
-            <button @click="showAddModal = true" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
+            <button type="button" onclick="openRawAddModal()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i>
                 <span>إضافة خامة جديدة</span>
             </button>
@@ -180,7 +139,7 @@
                             <!-- صورة ورصيد الصنف بالخانة المخصصة -->
                             <td class="py-3 px-3">
                                 <div class="flex items-center gap-3">
-                                    <div class="relative group cursor-pointer" @click="openZoom('{{ $m->image_url }}', '{{ $m->name }}')">
+                                    <div class="relative group cursor-pointer" onclick="openRawZoomModal('{{ $m->image_url }}', '{{ addslashes($m->name) }}')">
                                         <img src="{{ $m->image_url }}" alt="{{ $m->name }}" class="w-14 h-14 object-cover rounded-2xl border border-slate-200 bg-white shadow-sm group-hover:scale-105 transition" loading="lazy">
                                         <div class="absolute inset-0 bg-black/30 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs">
                                             <i class="fa-solid fa-magnifying-glass-plus"></i>
@@ -228,7 +187,10 @@
                                         {{ number_format($m->unit_cost, 2) }} ج.م
                                     </span>
                                     @if(Auth::user()->isOwner() || Auth::user()->isGM())
-                                        <button type="button" @click="openPricing({{ json_encode($m) }})" title="تسعير الإدارة العليا" class="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition">
+                                        <button type="button" 
+                                                onclick="openRawPricingModal({{ $m->id }}, '{{ addslashes($m->name) }}', '{{ $m->unit }}', {{ (float)$m->unit_cost }})" 
+                                                title="تسعير الإدارة العليا" 
+                                                class="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition">
                                             <i class="fa-solid fa-pen text-[10px]"></i>
                                         </button>
                                     @endif
@@ -256,16 +218,38 @@
                             <td class="py-3 px-3 text-center">
                                 <div class="inline-flex items-center gap-1.5">
                                     @if(Auth::user()->isOwner() || Auth::user()->isGM())
-                                        <button type="button" @click="openPricing({{ json_encode($m) }})" title="تسعير الإدارة العليا" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                                        <button type="button" 
+                                                onclick="openRawPricingModal({{ $m->id }}, '{{ addslashes($m->name) }}', '{{ $m->unit }}', {{ (float)$m->unit_cost }})" 
+                                                title="تسعير الإدارة العليا" 
+                                                class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
                                             <i class="fa-solid fa-coins"></i>
                                             <span>تسعير</span>
                                         </button>
                                     @endif
-                                    <button type="button" @click="openAdjust({{ json_encode($m) }})" title="تسوية رصيد جردي" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1">
+
+                                    <button type="button" 
+                                            onclick="openRawAdjustModal({{ $m->id }}, '{{ addslashes($m->name) }}', '{{ $m->unit }}', {{ (float)$m->current_stock }})" 
+                                            title="تسوية رصيد جردي" 
+                                            class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1">
                                         <i class="fa-solid fa-scale-balanced"></i>
                                         <span>تسوية</span>
                                     </button>
-                                    <button type="button" @click="openEdit({{ json_encode($m) }})" title="تعديل بيانات الخامة" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1">
+
+                                    <button type="button" 
+                                            onclick="openRawEditModal(this)"
+                                            data-id="{{ $m->id }}"
+                                            data-name="{{ $m->name }}"
+                                            data-category="{{ $m->category }}"
+                                            data-unit="{{ $m->unit }}"
+                                            data-stock="{{ $m->current_stock }}"
+                                            data-cost="{{ $m->unit_cost }}"
+                                            data-reorder="{{ $m->reorder_level }}"
+                                            data-location="{{ $m->warehouse_location }}"
+                                            data-package="{{ $m->package_info }}"
+                                            data-supplier="{{ $m->supplier_id }}"
+                                            data-factory="{{ $m->source_factory_id }}"
+                                            title="تعديل بيانات الخامة" 
+                                            class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                         <span>تعديل</span>
                                     </button>
@@ -288,24 +272,24 @@
         </div>
     </div>
 
-    <!-- MODAL: IMAGE ZOOM LIGHTBOX -->
-    <div x-show="showZoomModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-        <div @click.away="showZoomModal = false" class="bg-white rounded-3xl max-w-xl w-full p-4 shadow-2xl space-y-3 border border-slate-200">
+    <!-- MODAL 1: IMAGE ZOOM LIGHTBOX -->
+    <div id="rawZoomModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-xl w-full p-4 shadow-2xl space-y-3 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h3 class="font-black text-slate-900 text-sm" x-text="zoomTitle"></h3>
-                <button @click="showZoomModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+                <h3 id="rawZoomTitle" class="font-black text-slate-900 text-sm"></h3>
+                <button type="button" onclick="closeModal('rawZoomModal')" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
             </div>
             <div class="bg-slate-50 p-2 rounded-2xl flex items-center justify-center">
-                <img :src="zoomImage" :alt="zoomTitle" class="max-h-[70vh] rounded-xl object-contain shadow-sm">
+                <img id="rawZoomImg" src="" alt="" class="max-h-[70vh] rounded-xl object-contain shadow-sm">
             </div>
             <div class="text-center text-xs text-slate-500 font-medium">صورة الصنف الفعلية الملتقطة من جرد المخزن المركزي</div>
         </div>
     </div>
 
-    <!-- MODAL: TOP MANAGEMENT PRICING (دكتور عزت وم. بولا) -->
+    <!-- MODAL 2: TOP MANAGEMENT PRICING (دكتور عزت وم. بولا) -->
     @if(Auth::user()->isOwner() || Auth::user()->isGM())
-    <div x-show="showPricingModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showPricingModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
+    <div id="rawPricingModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2">
                     <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -316,29 +300,29 @@
                         <p class="text-[11px] text-amber-800 font-bold">خاص بـ د. عزت الفيل & م. بولا الفيل</p>
                     </div>
                 </div>
-                <button @click="showPricingModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('rawPricingModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.pricing.update') }}" class="space-y-4 text-xs">
                 @csrf
-                <input type="hidden" name="material_id" :value="pricingItem.id">
+                <input type="hidden" id="pricing_material_id" name="material_id" value="">
 
                 <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
-                    <div class="font-black text-slate-900" x-text="pricingItem.name"></div>
-                    <div class="text-slate-500">الوحدة: <span class="font-bold text-slate-800" x-text="pricingItem.unit"></span></div>
+                    <div id="pricing_material_name" class="font-black text-slate-900"></div>
+                    <div class="text-slate-500">الوحدة: <span id="pricing_material_unit" class="font-bold text-slate-800"></span></div>
                 </div>
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">سعر التكلفة الجديد المعتمد (ج.م) *</label>
                     <div class="relative">
-                        <input type="number" step="0.001" min="0" name="unit_cost" x-model="pricingItem.unit_cost" required class="w-full text-base font-black rounded-xl border-amber-300 focus:ring-amber-500 focus:border-amber-500 pr-3 pl-12">
+                        <input type="number" step="0.001" min="0" id="pricing_unit_cost" name="unit_cost" required class="w-full text-base font-black rounded-xl border-amber-300 focus:ring-amber-500 focus:border-amber-500 pr-3 pl-12">
                         <span class="absolute left-3 top-2.5 text-xs font-bold text-slate-400">ج.م</span>
                     </div>
                     <p class="text-[10px] text-slate-400 mt-1">سيتم استخدام هذا السعر لحساب ربحية الكوڤير وتسعير أوامر الشغل تلقائياً.</p>
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showPricingModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('rawPricingModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -351,20 +335,20 @@
     </div>
     @endif
 
-    <!-- MODAL: ADD RAW MATERIAL -->
-    <div x-show="showAddModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showAddModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <!-- MODAL 3: ADD RAW MATERIAL -->
+    <div id="rawAddModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-plus-circle text-amber-600"></i>
                     <span>إضافة خامة / مستلزم جديد للمخزن</span>
                 </h3>
-                <button @click="showAddModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('rawAddModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
-            <form method="POST" action="{{ route('warehouse.rawMaterials.store') }}" enctype="multipart/form-data" class="space-y-4">
+            <form method="POST" action="{{ route('warehouse.rawMaterials.store') }}" enctype="multipart/form-data" class="space-y-4 text-xs">
                 @csrf
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">اسم الخامة / المستلزم *</label>
                         <input type="text" name="name" required placeholder="مثال: رول سيلوفان مطبوع أبو طارق، معلقة فيرساتشي أبيض..." class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
@@ -441,7 +425,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showAddModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('rawAddModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -453,49 +437,49 @@
         </div>
     </div>
 
-    <!-- MODAL: EDIT RAW MATERIAL -->
-    <div x-show="showEditModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showEditModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <!-- MODAL 4: EDIT RAW MATERIAL -->
+    <div id="rawEditModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-pen-to-square text-amber-600"></i>
-                    <span>تعديل بيانات الخامة: <span class="text-amber-700" x-text="editItem.name"></span></span>
+                    <span>تعديل بيانات الخامة: <span id="rawEditTitle" class="text-amber-700"></span></span>
                 </h3>
-                <button @click="showEditModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('rawEditModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
-            <form :action="'{{ url('warehouse/raw-materials') }}/' + editItem.id" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <form id="rawEditForm" method="POST" action="" enctype="multipart/form-data" class="space-y-4 text-xs">
                 @csrf
                 @method('PUT')
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">اسم الخامة *</label>
-                        <input type="text" name="name" x-model="editItem.name" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" id="edit_rm_name" name="name" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">التصنيف *</label>
-                        <input type="text" name="category" x-model="editItem.category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" id="edit_rm_category" name="category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الوحدة *</label>
-                        <input type="text" name="unit" x-model="editItem.unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" id="edit_rm_unit" name="unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الرصيد الحالي بالمخزن *</label>
-                        <input type="number" step="0.01" min="0" name="current_stock" x-model="editItem.current_stock" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="number" step="0.01" min="0" id="edit_rm_stock" name="current_stock" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">حد الطلب الآمن *</label>
-                        <input type="number" step="0.01" min="0" name="reorder_level" x-model="editItem.reorder_level" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="number" step="0.01" min="0" id="edit_rm_reorder" name="reorder_level" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">تكلفة الوحدة (ج.م) *</label>
-                        <input type="number" step="0.001" min="0" name="unit_cost" x-model="editItem.unit_cost" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500" {{ (!Auth::user()->isOwner() && !Auth::user()->isGM()) ? 'readonly' : '' }}>
+                        <input type="number" step="0.001" min="0" id="edit_rm_cost" name="unit_cost" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500" {{ (!Auth::user()->isOwner() && !Auth::user()->isGM()) ? 'readonly' : '' }}>
                         @if(!Auth::user()->isOwner() && !Auth::user()->isGM())
                             <span class="text-[10px] text-slate-400 block mt-0.5">التسعير مقيد - خاص بالإدارة العليا</span>
                         @endif
@@ -503,22 +487,22 @@
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الموقع بالمخزن</label>
-                        <input type="text" name="warehouse_location" x-model="editItem.warehouse_location" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" id="edit_rm_location" name="warehouse_location" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">مواصفات التعبئة والوزن (Package Info)</label>
-                        <input type="text" name="package_info" x-model="editItem.package_info" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                        <input type="text" id="edit_rm_package" name="package_info" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
                     </div>
 
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">تحديث صورة الصنف (اختياري)</label>
-                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700">
+                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
                     </div>
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showEditModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('rawEditModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -530,37 +514,37 @@
         </div>
     </div>
 
-    <!-- MODAL: FAST STOCK ADJUSTMENT -->
-    <div x-show="showAdjustModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showAdjustModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <!-- MODAL 5: FAST STOCK ADJUSTMENT -->
+    <div id="rawAdjustModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-scale-balanced text-blue-600"></i>
                     <span>تسوية رصيد جردي للصنف</span>
                 </h3>
-                <button @click="showAdjustModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('rawAdjustModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
-            <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4">
+            <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4 text-xs">
                 @csrf
                 <input type="hidden" name="item_type" value="raw_material">
-                <input type="hidden" name="item_id" :value="adjustItem.id">
+                <input type="hidden" id="adjust_rm_id" name="item_id" value="">
 
-                <div class="bg-blue-50/60 p-3 rounded-2xl border border-blue-100 space-y-1 text-xs">
-                    <div class="font-bold text-blue-900 text-sm" x-text="adjustItem.name"></div>
+                <div class="bg-blue-50/60 p-3 rounded-2xl border border-blue-100 space-y-1">
+                    <div id="adjust_rm_name" class="font-bold text-blue-900 text-sm"></div>
                     <div class="text-blue-700">
                         الرصيد الدفتري الحالي: 
-                        <span class="font-black text-sm" x-text="adjustItem.current_stock"></span> 
-                        <span x-text="adjustItem.unit"></span>
+                        <span id="adjust_rm_stock" class="font-black text-sm"></span> 
+                        <span id="adjust_rm_unit"></span>
                     </div>
                 </div>
 
-                <div class="space-y-3 text-xs">
+                <div class="space-y-3">
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الرصيد الفعلي الجديد بعد الجرد *</label>
                         <div class="flex items-center gap-2">
-                            <input type="number" step="0.01" min="0" name="new_stock" x-model="adjustItem.new_stock" required class="flex-1 text-sm font-black rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500">
-                            <span class="font-bold text-slate-600" x-text="adjustItem.unit"></span>
+                            <input type="number" step="0.01" min="0" id="adjust_rm_new_stock" name="new_stock" required class="flex-1 text-sm font-black rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500">
+                            <span id="adjust_rm_unit_label" class="font-bold text-slate-600"></span>
                         </div>
                     </div>
 
@@ -582,7 +566,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showAdjustModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('rawAdjustModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -595,4 +579,101 @@
     </div>
 
 </div>
+
+<!-- Vanilla JS Modal Controller (100% Fail-Safe, Independent of CDN) -->
+<script>
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+        }
+    }
+
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+    }
+
+    function openRawAddModal() {
+        openModal('rawAddModal');
+    }
+
+    function openRawEditModal(btn) {
+        const id = btn.dataset.id;
+        const name = btn.dataset.name;
+        const category = btn.dataset.category;
+        const unit = btn.dataset.unit;
+        const stock = btn.dataset.stock;
+        const cost = btn.dataset.cost;
+        const reorder = btn.dataset.reorder;
+        const location = btn.dataset.location || '';
+        const packageInfo = btn.dataset.package || '';
+
+        document.getElementById('rawEditTitle').textContent = name;
+        document.getElementById('rawEditForm').action = "{{ url('warehouse/raw-materials') }}/" + id;
+        document.getElementById('edit_rm_name').value = name;
+        document.getElementById('edit_rm_category').value = category;
+        document.getElementById('edit_rm_unit').value = unit;
+        document.getElementById('edit_rm_stock').value = stock;
+        document.getElementById('edit_rm_cost').value = cost;
+        document.getElementById('edit_rm_reorder').value = reorder;
+        document.getElementById('edit_rm_location').value = location;
+        document.getElementById('edit_rm_package').value = packageInfo;
+
+        openModal('rawEditModal');
+    }
+
+    function openRawAdjustModal(id, name, unit, stock) {
+        document.getElementById('adjust_rm_id').value = id;
+        document.getElementById('adjust_rm_name').textContent = name;
+        document.getElementById('adjust_rm_stock').textContent = stock;
+        document.getElementById('adjust_rm_unit').textContent = unit;
+        document.getElementById('adjust_rm_unit_label').textContent = unit;
+        document.getElementById('adjust_rm_new_stock').value = stock;
+
+        openModal('rawAdjustModal');
+    }
+
+    function openRawPricingModal(id, name, unit, cost) {
+        const modal = document.getElementById('rawPricingModal');
+        if (!modal) return;
+
+        document.getElementById('pricing_material_id').value = id;
+        document.getElementById('pricing_material_name').textContent = name;
+        document.getElementById('pricing_material_unit').textContent = unit;
+        document.getElementById('pricing_unit_cost').value = cost;
+
+        openModal('rawPricingModal');
+    }
+
+    function openRawZoomModal(src, title) {
+        document.getElementById('rawZoomImg').src = src;
+        document.getElementById('rawZoomTitle').textContent = title;
+        openModal('rawZoomModal');
+    }
+
+    // Backdrop click listener - clicking outside modal dialog closes it immediately
+    window.addEventListener('click', function(e) {
+        document.querySelectorAll('.modal-wrapper').forEach(function(modal) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.classList.add('hidden');
+            }
+        });
+    });
+
+    // Escape key listener closes all modals
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-wrapper').forEach(function(modal) {
+                modal.style.display = 'none';
+                modal.classList.add('hidden');
+            });
+        }
+    });
+</script>
 @endsection

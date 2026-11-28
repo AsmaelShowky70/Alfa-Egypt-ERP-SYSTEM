@@ -329,7 +329,7 @@
 </div>
 
 <!-- Lightbox Modal for Image Zoom -->
-<div id="auditZoomModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="closeAuditZoomModal()">
+<div id="auditZoomModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none;" onclick="closeAuditZoomModal()">
     <div class="bg-white rounded-3xl max-w-lg w-full p-4 space-y-3 overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between border-b border-slate-100 pb-2">
             <div>
@@ -531,11 +531,15 @@
         document.getElementById('zoomModalImg').src = url;
         document.getElementById('zoomModalTitle').textContent = title;
         document.getElementById('zoomModalCode').textContent = code;
-        document.getElementById('auditZoomModal').classList.remove('hidden');
+        const modal = document.getElementById('auditZoomModal');
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
     }
 
     function closeAuditZoomModal() {
-        document.getElementById('auditZoomModal').classList.add('hidden');
+        const modal = document.getElementById('auditZoomModal');
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
     }
 
     document.addEventListener('DOMContentLoaded', function() {

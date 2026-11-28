@@ -3,68 +3,7 @@
 @section('title', 'مخزن المنتج التام (الكوڤير والأصناف الجاهزة للتسليم والبيع)')
 
 @section('content')
-<div class="space-y-6" x-data="{
-    showAddModal: false,
-    showEditModal: false,
-    showAdjustModal: false,
-    showDispatchModal: false,
-    showPricingModal: false,
-    showZoomModal: false,
-    zoomImage: '',
-    zoomTitle: '',
-    editItem: { id: '', name: '', category: '', unit: '', customer_id: '', cost_price: 0, selling_price: 0, current_stock: 0, reorder_level: 0, package_info: '', description: '' },
-    adjustItem: { id: '', name: '', unit: '', current_stock: 0, new_stock: 0, reason: '', notes: '' },
-    dispatchItem: { id: '', name: '', unit: '', current_stock: 0, selling_price: 0, customer_id: '', quantity: 1, total: 0, payment_type: 'credit', received_by: '', dispatch_date: '{{ date('Y-m-d') }}', notes: '' },
-    pricingItem: { id: '', name: '', cost_price: 0, selling_price: 0, factory_price: 0 },
-    openEdit(p) {
-        this.editItem = { ...p };
-        this.showEditModal = true;
-    },
-    openAdjust(p) {
-        this.adjustItem = {
-            id: p.id,
-            name: p.name,
-            unit: p.unit,
-            current_stock: p.current_stock,
-            new_stock: p.current_stock,
-            reason: 'جرد فعلي لمخزن المنتج التام',
-            notes: ''
-        };
-        this.showAdjustModal = true;
-    },
-    openDispatch(p) {
-        this.dispatchItem = {
-            id: p.id,
-            name: p.name,
-            unit: p.unit,
-            current_stock: p.current_stock,
-            selling_price: p.selling_price,
-            customer_id: p.customer_id || '',
-            quantity: 1000,
-            unit_price: p.selling_price,
-            payment_type: 'credit',
-            received_by: '',
-            dispatch_date: '{{ date('Y-m-d') }}',
-            notes: ''
-        };
-        this.showDispatchModal = true;
-    },
-    openPricing(p) {
-        this.pricingItem = {
-            id: p.id,
-            name: p.name,
-            cost_price: p.cost_price,
-            selling_price: p.selling_price,
-            factory_price: (Number(p.cost_price) * 1.14).toFixed(2)
-        };
-        this.showPricingModal = true;
-    },
-    openZoom(img, title) {
-        this.zoomImage = img;
-        this.zoomTitle = title;
-        this.showZoomModal = true;
-    }
-}">
+<div class="space-y-6">
 
     <!-- Top Management Couvert Pricing & 14% Factory Markup Banner -->
     <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 text-white rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-500/40">
@@ -102,11 +41,11 @@
             <p class="text-xs text-slate-500 mt-1">متابعة دقيقة لأرصدة الكوڤير الجاهزة للتسليم للعملاء أو البيع المباشر للغير مع الترحيل المالي الآلي</p>
         </div>
         <div class="flex items-center gap-2">
-            <button @click="showAddModal = true" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
+            <button type="button" onclick="openFinishedAddModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i>
                 <span>إضافة منتج تام جديد</span>
             </button>
-            <button @click="openDispatch(products[0] || {})" class="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+            <button type="button" onclick="openFinishedDispatchModal(null)" class="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
                 <i class="fa-solid fa-truck-ramp-box"></i>
                 <span>صرف وبيع من المخزن</span>
             </button>
@@ -162,7 +101,7 @@
         </form>
     </div>
 
-    <!-- Products Grid -->
+    <!-- Products Grid Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         @forelse($products as $p)
             @php
@@ -170,61 +109,59 @@
                 $isLow = $p->current_stock <= $p->reorder_level && !$isZero;
                 $factorySellingPrice = round($p->cost_price * 1.14, 2);
             @endphp
-            <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition {{ $isZero ? 'border-rose-300 bg-rose-50/10' : '' }}">
+            <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-4 relative {{ $isZero ? 'border-rose-300' : ($isLow ? 'border-amber-300' : '') }}">
+                
                 <div class="space-y-3">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="space-y-1">
-                            <span class="font-mono text-xs font-bold text-slate-400">{{ $p->code }}</span>
-                            <h3 class="font-black text-base text-slate-900">{{ $p->name }}</h3>
-                            @if($p->customer)
-                                <p class="text-xs font-bold text-brand-700 flex items-center gap-1">
-                                    <i class="fa-solid fa-tag"></i>
-                                    <span>مخصص لعميل: {{ $p->customer->name }}</span>
-                                </p>
-                            @else
-                                <p class="text-xs font-bold text-slate-500 flex items-center gap-1">
-                                    <i class="fa-solid fa-store"></i>
-                                    <span>متاح للبيع للغير من المخزن</span>
-                                </p>
-                            @endif
-                        </div>
-                        <div class="relative group cursor-pointer" @click="openZoom('{{ $p->image_url }}', '{{ $p->name }}')">
-                            <img src="{{ $p->image_url }}" alt="{{ $p->name }}" class="w-16 h-16 rounded-2xl object-cover bg-white p-1 border border-slate-200 shadow-sm group-hover:scale-105 transition" loading="lazy">
+                    <div class="flex items-start gap-3">
+                        <!-- Product Real Photo with Zoom -->
+                        <div class="relative group cursor-pointer flex-shrink-0" onclick="openFinishedZoomModal('{{ $p->image_url }}', '{{ addslashes($p->name) }}')">
+                            <img src="{{ $p->image_url }}" alt="{{ $p->name }}" class="w-16 h-16 object-cover rounded-2xl border border-slate-200 bg-white shadow-sm group-hover:scale-105 transition" loading="lazy">
                             <div class="absolute inset-0 bg-black/30 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs">
                                 <i class="fa-solid fa-magnifying-glass-plus"></i>
                             </div>
                         </div>
-                    </div>
 
-                    @if($p->package_info)
-                        <div class="text-xs text-blue-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-100 flex items-center gap-1.5 font-bold">
-                            <i class="fa-solid fa-boxes-packing text-blue-600"></i>
-                            <span>{{ $p->package_info }}</span>
-                        </div>
-                    @endif
-
-                    @if($p->description)
-                        <p class="text-xs text-slate-500 line-clamp-2">{{ $p->description }}</p>
-                    @endif
-
-                    <!-- Stock & Cost Card -->
-                    <div class="grid grid-cols-2 gap-2 text-center text-xs bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <div>
-                            <span class="text-[10px] text-slate-400 block font-medium">الرصيد التام المتاح</span>
-                            <span class="font-black text-base {{ $isZero ? 'text-rose-600' : 'text-slate-900' }}">
-                                {{ number_format($p->current_stock) }} {{ $p->unit }}
-                            </span>
-                            @if($isZero)
-                                <span class="inline-block text-[9px] font-bold bg-rose-100 text-rose-700 px-1 rounded">رصيد صفري</span>
-                            @elseif($isLow)
-                                <span class="inline-block text-[9px] font-bold bg-amber-100 text-amber-700 px-1 rounded">تحت حد الأمان</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono text-[10px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded">{{ $p->code }}</span>
+                                @if($p->customer)
+                                    <span class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded truncate">
+                                        {{ $p->customer->name }}
+                                    </span>
+                                @else
+                                    <span class="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                        عام (متاح للبيع)
+                                    </span>
+                                @endif
+                            </div>
+                            <h3 class="font-black text-slate-900 text-sm mt-1 leading-snug truncate" title="{{ $p->name }}">{{ $p->name }}</h3>
+                            @if($p->package_info)
+                                <span class="text-[10px] text-blue-700 font-semibold flex items-center gap-1 mt-0.5">
+                                    <i class="fa-solid fa-boxes-packing text-[9px]"></i>
+                                    {{ $p->package_info }}
+                                </span>
                             @endif
                         </div>
+                    </div>
+
+                    <!-- Stock & Status Row -->
+                    <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-100">
                         <div>
-                            <span class="text-[10px] text-slate-400 block font-medium">إجمالي القيمة المخزنية</span>
-                            <span class="font-black text-emerald-800 text-base">
-                                {{ number_format($p->current_stock * $p->cost_price, 2) }} ج.م
-                            </span>
+                            <span class="text-[10px] text-slate-400 block font-bold">الرصيد بالمخزن</span>
+                            <div class="text-base font-black {{ $isZero ? 'text-rose-600' : ($isLow ? 'text-amber-600' : 'text-slate-900') }}">
+                                {{ number_format($p->current_stock) }}
+                                <span class="text-xs font-bold text-slate-600">{{ $p->unit }}</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            @if($isZero)
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">غير متوفر (0)</span>
+                            @elseif($isLow)
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">تحت حد الأمان</span>
+                            @else
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">جاهز للتسليم</span>
+                            @endif
                         </div>
                     </div>
 
@@ -248,21 +185,47 @@
                 <div class="space-y-3 pt-3 border-t border-slate-100">
                     <!-- Action Buttons -->
                     <div class="grid grid-cols-3 gap-1.5 pt-1">
-                        <button type="button" @click="openDispatch({{ json_encode($p) }})" class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm">
+                        <button type="button" 
+                                onclick="openFinishedDispatchModal(this)"
+                                data-id="{{ $p->id }}"
+                                data-name="{{ $p->name }}"
+                                data-unit="{{ $p->unit }}"
+                                data-stock="{{ $p->current_stock }}"
+                                data-price="{{ $p->selling_price }}"
+                                data-customer="{{ $p->customer_id }}"
+                                class="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 shadow-sm">
                             <i class="fa-solid fa-truck-ramp-box"></i>
                             <span>صرف وبيع</span>
                         </button>
-                        <button type="button" @click="openAdjust({{ json_encode($p) }})" class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+
+                        <button type="button" 
+                                onclick="openFinishedAdjustModal({{ $p->id }}, '{{ addslashes($p->name) }}', '{{ $p->unit }}', {{ (float)$p->current_stock }})"
+                                class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
                             <i class="fa-solid fa-scale-balanced"></i>
                             <span>تسوية</span>
                         </button>
+
                         @if(Auth::user()->isOwner() || Auth::user()->isGM())
-                            <button type="button" @click="openPricing({{ json_encode($p) }})" class="py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+                            <button type="button" 
+                                    onclick="openFinishedPricingModal({{ $p->id }}, '{{ addslashes($p->name) }}', {{ (float)$p->cost_price }}, {{ (float)$p->selling_price }})"
+                                    class="py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
                                 <i class="fa-solid fa-coins"></i>
                                 <span>تسعير</span>
                             </button>
                         @else
-                            <button type="button" @click="openEdit({{ json_encode($p) }})" class="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+                            <button type="button" 
+                                    onclick="openFinishedEditModal(this)"
+                                    data-id="{{ $p->id }}"
+                                    data-name="{{ $p->name }}"
+                                    data-category="{{ $p->category }}"
+                                    data-unit="{{ $p->unit }}"
+                                    data-customer="{{ $p->customer_id }}"
+                                    data-stock="{{ $p->current_stock }}"
+                                    data-cost="{{ $p->cost_price }}"
+                                    data-selling="{{ $p->selling_price }}"
+                                    data-reorder="{{ $p->reorder_level }}"
+                                    data-package="{{ $p->package_info }}"
+                                    class="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
                                 <i class="fa-solid fa-pen-to-square"></i>
                                 <span>تعديل</span>
                             </button>
@@ -278,74 +241,77 @@
         @endforelse
     </div>
 
-    <div class="pt-4 border-t border-slate-100">
-        {{ $products->links() }}
-    </div>
+    @if($products->hasPages())
+        <div class="pt-4">
+            {{ $products->links() }}
+        </div>
+    @endif
 
-    <!-- MODAL: IMAGE ZOOM LIGHTBOX -->
-    <div x-show="showZoomModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-        <div @click.away="showZoomModal = false" class="bg-white rounded-3xl max-w-xl w-full p-4 shadow-2xl space-y-3 border border-slate-200">
+    <!-- MODAL 1: IMAGE ZOOM LIGHTBOX -->
+    <div id="finishedZoomModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-xl w-full p-4 shadow-2xl space-y-3 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h3 class="font-black text-slate-900 text-sm" x-text="zoomTitle"></h3>
-                <button @click="showZoomModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+                <h3 id="finishedZoomTitle" class="font-black text-slate-900 text-sm"></h3>
+                <button type="button" onclick="closeModal('finishedZoomModal')" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
             </div>
             <div class="bg-slate-50 p-2 rounded-2xl flex items-center justify-center">
-                <img :src="zoomImage" :alt="zoomTitle" class="max-h-[70vh] rounded-xl object-contain shadow-sm">
+                <img id="finishedZoomImg" src="" alt="" class="max-h-[70vh] rounded-xl object-contain shadow-sm">
             </div>
-            <div class="text-center text-xs text-slate-500 font-medium">صورة المنتج التام الفعلية من جرد المخزن المركزي</div>
         </div>
     </div>
 
-    <!-- MODAL: TOP MANAGEMENT COUVERT PRICING -->
+    <!-- MODAL 2: TOP MANAGEMENT COUVERT PRICING -->
     @if(Auth::user()->isOwner() || Auth::user()->isGM())
-    <div x-show="showPricingModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showPricingModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
+    <div id="finishedPricingModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2">
                     <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
                         <i class="fa-solid fa-crown"></i>
                     </span>
                     <div>
-                        <h3 class="text-base font-black text-slate-900">تسعير الكوڤير ومصنعية الـ 14%</h3>
+                        <h3 class="text-base font-black text-slate-900">تسعير الكوڤير والمنتج التام</h3>
                         <p class="text-[11px] text-amber-800 font-bold">خاص بـ د. عزت الفيل & م. بولا الفيل</p>
                     </div>
                 </div>
-                <button @click="showPricingModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('finishedPricingModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.pricing.update') }}" class="space-y-4 text-xs">
                 @csrf
-                <input type="hidden" name="product_id" :value="pricingItem.id">
+                <input type="hidden" name="type" value="finished_good">
+                <input type="hidden" id="pricing_prod_id" name="id" value="">
 
                 <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
-                    <div class="font-black text-slate-900" x-text="pricingItem.name"></div>
-                </div>
-
-                <div>
-                    <label class="block font-bold text-slate-700 mb-1">تكلفة الخامات المباشرة (BOM) ج.م *</label>
-                    <input type="number" step="0.01" min="0" name="cost_price" x-model="pricingItem.cost_price" @input="pricingItem.factory_price = (Number(pricingItem.cost_price) * 1.14).toFixed(2)" required class="w-full text-xs font-black rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
-                </div>
-
-                <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <div class="flex items-center justify-between font-bold text-emerald-900">
-                        <span>سعر البيع للغير بعد إضافة 14% مصنعية:</span>
-                        <span class="font-black text-base text-emerald-700" x-text="pricingItem.factory_price + ' ج.م'"></span>
+                    <div id="pricing_prod_name" class="font-black text-slate-900"></div>
+                    <div class="text-slate-500">
+                        تكلفة الخامات الحالية (BOM): 
+                        <span id="pricing_prod_cost_label" class="font-bold text-slate-800"></span> ج.م
                     </div>
-                    <p class="text-[10px] text-emerald-700 mt-1">يحتسب آلياً: التكلفة × 1.14 طبقاً لقواعد التصنيع الداخلي.</p>
+                    <div class="text-emerald-700 font-bold">
+                        الحد الأدنى لسعر المصنع (+14% مصنعية): 
+                        <span id="pricing_prod_factory_label" class="font-black"></span> ج.م
+                    </div>
                 </div>
 
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">سعر بيع الكوڤير الثابت المعتمد (ج.م) *</label>
-                    <input type="number" step="0.01" min="0" name="selling_price" x-model="pricingItem.selling_price" required class="w-full text-xs font-black rounded-xl border-amber-300 focus:ring-amber-500 focus:border-amber-500">
+                    <label class="block font-bold text-slate-700 mb-1">سعر التكلفة المحتسب للقطعة (ج.م) *</label>
+                    <input type="number" step="0.01" min="0" id="pricing_prod_cost" name="cost_price" required oninput="calcFactoryPrice()" class="w-full text-xs rounded-xl border-slate-200 focus:ring-amber-500 focus:border-amber-500">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">سعر البيع المعتمد للغير (ج.م) *</label>
+                    <input type="number" step="0.01" min="0" id="pricing_prod_selling" name="selling_price" required class="w-full text-xs font-black text-emerald-800 rounded-xl border-amber-300 focus:ring-amber-500 focus:border-amber-500">
+                    <p class="text-[10px] text-slate-400 mt-1">يجب ألا يقل سعر البيع عن تكلفة الخامات + 14% مصنعية تصنيع.</p>
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showPricingModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('finishedPricingModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
                         <i class="fa-solid fa-check"></i>
-                        <span>اعتماد التسعير والمصنعية</span>
+                        <span>اعتماد السعر الثابت</span>
                     </button>
                 </div>
             </form>
@@ -353,42 +319,44 @@
     </div>
     @endif
 
-    <!-- MODAL: ADD FINISHED GOOD -->
-    <div x-show="showAddModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showAddModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <!-- MODAL 3: ADD FINISHED GOOD -->
+    <div id="finishedAddModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-plus-circle text-emerald-600"></i>
-                    <span>إضافة منتج تام جديد لمخزن الكوڤير</span>
+                    <span>إضافة منتج تام / كوڤير جديد للمخزن</span>
                 </h3>
-                <button @click="showAddModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('finishedAddModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
-            <form method="POST" action="{{ route('warehouse.finishedGoods.store') }}" enctype="multipart/form-data" class="space-y-4">
+            <form method="POST" action="{{ route('warehouse.finishedGoods.store') }}" enctype="multipart/form-data" class="space-y-4 text-xs">
                 @csrf
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">اسم المنتج التام *</label>
-                        <input type="text" name="name" required placeholder="مثال: كوڤير 4 في 1 أزرق - كشري أبو طارق، علبة جوانتي طعام..." class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="text" name="name" required placeholder="مثال: كوڤير 4*1 كشري أبو طارق (معلقة، شوكة، وايبس، خلة)" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">التصنيف *</label>
                         <select name="category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
-                            <option value="كوڤير مخصص للعملاء">كوڤير مخصص للعملاء</option>
-                            <option value="كوڤير تجاري عام">كوڤير تجاري عام (بيع للغير)</option>
-                            <option value="مستلزمات نظافة وضيافة">مستلزمات نظافة وضيافة (جوانتي، وايبس)</option>
-                            <option value="مفارش وسفر">مفارش وسفر</option>
+                            <option value="كوڤير مطاعم متكامل">كوڤير مطاعم متكامل</option>
+                            <option value="عبوات مناديل وايبس معطرة">عبوات مناديل وايبس معطرة</option>
+                            <option value="علب جوانتي وبوليمرات">علب جوانتي وبوليمرات</option>
+                            <option value="أكياس ومفارش سفرة">أكياس ومفارش سفرة</option>
+                            <option value="أطقم شوك ومعالق مفردة">أطقم شوك ومعالق مفردة</option>
+                            <option value="أخرى">أخرى</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">وحدة القياس *</label>
+                        <label class="block font-bold text-slate-700 mb-1">الوحدة *</label>
                         <select name="unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
-                            <option value="قطعة">قطعة (كوڤير)</option>
-                            <option value="علبة">علبة</option>
+                            <option value="قطعة">قطعة (كوڤير فردي)</option>
                             <option value="كرتونة">كرتونة</option>
                             <option value="باكت">باكت</option>
+                            <option value="علبة">علبة</option>
                         </select>
                     </div>
 
@@ -403,43 +371,38 @@
                     </div>
 
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">الرصيد الفعلي الحالي بالمخزن *</label>
+                        <label class="block font-bold text-slate-700 mb-1">الرصيد الافتتاحي بالمخزن *</label>
                         <input type="number" step="1" min="0" name="current_stock" value="0" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">تكلفة إنتاج القطعة (BOM) ج.م *</label>
-                        <input type="number" step="0.01" min="0" name="cost_price" value="1.00" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <label class="block font-bold text-slate-700 mb-1">تكلفة الخامات للقطعة (BOM) ج.م *</label>
+                        <input type="number" step="0.01" min="0" name="cost_price" value="1.25" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">سعر البيع المعتمد للقطعة ج.م *</label>
-                        <input type="number" step="0.01" min="0" name="selling_price" value="1.50" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <label class="block font-bold text-slate-700 mb-1">سعر البيع المعتمد ج.م *</label>
+                        <input type="number" step="0.01" min="0" name="selling_price" value="1.65" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1">حد الأمان وإعادة الطلب *</label>
-                        <input type="number" step="1" min="0" name="reorder_level" value="5000" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
-                    </div>
-
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">مواصفات الكرتونة / التعبئة (Package Info)</label>
-                        <input type="text" name="package_info" placeholder="مثال: كرتونة تحتوي 1000 قطعة" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <label class="block font-bold text-slate-700 mb-1">حد الأمان (Reorder Level) *</label>
+                        <input type="number" step="1" min="0" name="reorder_level" value="1000" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div class="sm:col-span-2">
-                        <label class="block font-bold text-slate-700 mb-1">صورة المنتج التام الفعلية</label>
-                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700">
+                        <label class="block font-bold text-slate-700 mb-1">مواصفات التعبئة (Package Info)</label>
+                        <input type="text" name="package_info" placeholder="مثال: كرتونة تحتوي 1000 كوڤير / 10 باكت × 100 قطعة" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div class="sm:col-span-2">
-                        <label class="block font-bold text-slate-700 mb-1">وصف المنتج ومكوناته التفصيلية</label>
-                        <textarea name="description" rows="2" placeholder="اكتب مكونات الكوڤير (معلقة + شوكة + منديل + خلة...)" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500"></textarea>
+                        <label class="block font-bold text-slate-700 mb-1">صورة المنتج الواقعية</label>
+                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
                     </div>
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showAddModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('finishedAddModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -451,39 +414,39 @@
         </div>
     </div>
 
-    <!-- MODAL: EDIT FINISHED GOOD -->
-    <div x-show="showEditModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showEditModal = false" class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <!-- MODAL 4: EDIT FINISHED GOOD -->
+    <div id="finishedEditModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-pen-to-square text-emerald-600"></i>
-                    <span>تعديل المنتج التام: <span class="text-emerald-700" x-text="editItem.name"></span></span>
+                    <span>تعديل المنتج التام: <span id="finishedEditTitle" class="text-emerald-700"></span></span>
                 </h3>
-                <button @click="showEditModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('finishedEditModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
-            <form :action="'{{ url('warehouse/finished-goods') }}/' + editItem.id" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <form id="finishedEditForm" method="POST" action="" enctype="multipart/form-data" class="space-y-4 text-xs">
                 @csrf
                 @method('PUT')
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">اسم المنتج *</label>
-                        <input type="text" name="name" x-model="editItem.name" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="text" id="edit_fg_name" name="name" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">التصنيف *</label>
-                        <input type="text" name="category" x-model="editItem.category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="text" id="edit_fg_category" name="category" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الوحدة *</label>
-                        <input type="text" name="unit" x-model="editItem.unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="text" id="edit_fg_unit" name="unit" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">العميل المخصص له</label>
-                        <select name="customer_id" x-model="editItem.customer_id" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <select id="edit_fg_customer" name="customer_id" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                             <option value="">-- متاح للبيع للغير (عام) --</option>
                             @foreach($customers as $c)
                                 <option value="{{ $c->id }}">{{ $c->name }}</option>
@@ -493,37 +456,37 @@
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الرصيد بالمخزن *</label>
-                        <input type="number" step="1" min="0" name="current_stock" x-model="editItem.current_stock" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="number" step="1" min="0" id="edit_fg_stock" name="current_stock" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">تكلفة القطعة (BOM) ج.م *</label>
-                        <input type="number" step="0.01" min="0" name="cost_price" x-model="editItem.cost_price" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="number" step="0.01" min="0" id="edit_fg_cost" name="cost_price" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">سعر البيع المعتمد ج.م *</label>
-                        <input type="number" step="0.01" min="0" name="selling_price" x-model="editItem.selling_price" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="number" step="0.01" min="0" id="edit_fg_selling" name="selling_price" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">حد الأمان *</label>
-                        <input type="number" step="1" min="0" name="reorder_level" x-model="editItem.reorder_level" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="number" step="1" min="0" id="edit_fg_reorder" name="reorder_level" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">مواصفات التعبئة (Package Info)</label>
-                        <input type="text" name="package_info" x-model="editItem.package_info" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="text" id="edit_fg_package" name="package_info" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">تحديث صورة المنتج (اختياري)</label>
-                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700">
+                        <input type="file" name="image" accept="image/*" class="w-full text-xs rounded-xl border-slate-200 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
                     </div>
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showEditModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('finishedEditModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -535,43 +498,50 @@
         </div>
     </div>
 
-    <!-- MODAL: DIRECT SALE & DISPATCH FROM WAREHOUSE -->
-    <div x-show="showDispatchModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showDispatchModal = false" class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <!-- MODAL 5: DIRECT SALE & DISPATCH FROM WAREHOUSE -->
+    <div id="finishedDispatchModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-truck-ramp-box text-emerald-600"></i>
                     <span>إذن صرف وبيع بضاعة من المخزن</span>
                 </h3>
-                <button @click="showDispatchModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('finishedDispatchModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
-            <form method="POST" action="{{ route('warehouse.dispatchSale') }}" class="space-y-4">
+            <form method="POST" action="{{ route('warehouse.dispatchSale') }}" class="space-y-4 text-xs">
                 @csrf
-                <div class="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-100 space-y-1 text-xs">
+                <div class="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-100 space-y-1">
                     <div class="flex items-center justify-between">
                         <span class="font-bold text-emerald-900">المنتج المختار للصرف:</span>
-                        <span class="font-black text-sm text-emerald-800" x-text="dispatchItem.name"></span>
+                        <span id="dispatch_product_name_label" class="font-black text-sm text-emerald-800"></span>
                     </div>
                     <div class="flex items-center justify-between text-slate-600">
                         <span>الرصيد المتاح حالياً بالمخزن:</span>
-                        <span class="font-black text-slate-900" x-text="dispatchItem.current_stock + ' ' + dispatchItem.unit"></span>
+                        <span id="dispatch_current_stock_label" class="font-black text-slate-900"></span>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">اختر المنتج التام *</label>
-                        <select name="product_id" x-model="dispatchItem.id" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
-                            @foreach($products as $p)
-                                <option value="{{ $p->id }}" data-stock="{{ $p->current_stock }}" data-price="{{ $p->selling_price }}">{{ $p->name }} (متاح: {{ number_format($p->current_stock) }} {{ $p->unit }})</option>
+                        <select id="dispatch_product_select" name="product_id" required onchange="onDispatchProductChange(this)" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                            @foreach($products as $prod)
+                                <option value="{{ $prod->id }}" 
+                                        data-name="{{ $prod->name }}" 
+                                        data-stock="{{ $prod->current_stock }}" 
+                                        data-unit="{{ $prod->unit }}" 
+                                        data-price="{{ $prod->selling_price }}"
+                                        data-customer="{{ $prod->customer_id }}">
+                                    {{ $prod->name }} (متاح: {{ number_format($prod->current_stock) }} {{ $prod->unit }})
+                                </option>
                             @endforeach
                         </select>
                     </div>
 
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">العميل المستلم *</label>
-                        <select name="customer_id" x-model="dispatchItem.customer_id" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <select id="dispatch_customer_id" name="customer_id" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                             <option value="">-- اختر العميل --</option>
                             @foreach($customers as $c)
                                 <option value="{{ $c->id }}">{{ $c->name }} ({{ $c->phone }})</option>
@@ -581,17 +551,17 @@
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الكمية المصروفة للبيع *</label>
-                        <input type="number" step="1" min="1" name="quantity" x-model="dispatchItem.quantity" required class="w-full text-xs font-black rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="number" step="1" min="1" id="dispatch_quantity" name="quantity" value="1000" required oninput="calcDispatchTotal()" class="w-full text-xs font-black rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">سعر بيع الوحدة (ج.م) *</label>
-                        <input type="number" step="0.01" min="0" name="unit_price" x-model="dispatchItem.selling_price" required class="w-full text-xs font-black rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="number" step="0.01" min="0" id="dispatch_unit_price" name="unit_price" required oninput="calcDispatchTotal()" class="w-full text-xs font-black rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">طريقة السداد والتحصيل *</label>
-                        <select name="payment_type" x-model="dispatchItem.payment_type" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <select name="payment_type" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                             <option value="cash">نقدي فوراً (إيداع الخزينة الرئيسية)</option>
                             <option value="credit">آجل على حساب العميل (فاتورة ومستحقات)</option>
                         </select>
@@ -599,12 +569,12 @@
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">تاريخ الصرف والتسليم *</label>
-                        <input type="date" name="dispatch_date" x-model="dispatchItem.dispatch_date" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="date" name="dispatch_date" value="{{ date('Y-m-d') }}" required class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div class="sm:col-span-2">
                         <label class="block font-bold text-slate-700 mb-1">اسم مندوب / سائق المستلم *</label>
-                        <input type="text" name="received_by" x-model="dispatchItem.received_by" required placeholder="مثال: أحمد عبد الله (سائق سيارة رقم 4215)" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="text" name="received_by" required placeholder="مثال: أحمد عبد الله (سائق سيارة رقم 4215)" class="w-full text-xs rounded-xl border-slate-200 focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
                     <div class="sm:col-span-2">
@@ -615,11 +585,11 @@
 
                 <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs flex items-center justify-between">
                     <span class="font-bold text-slate-600">إجمالي قيمة الفاتورة المصروفة:</span>
-                    <span class="font-black text-emerald-700 text-base" x-text="Number(dispatchItem.quantity * dispatchItem.selling_price).toLocaleString('en-US', {minimumFractionDigits: 2}) + ' ج.م'"></span>
+                    <span id="dispatch_total_price_label" class="font-black text-emerald-700 text-base">0.00 ج.م</span>
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showDispatchModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('finishedDispatchModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -631,37 +601,37 @@
         </div>
     </div>
 
-    <!-- MODAL: FAST STOCK ADJUSTMENT FOR FINISHED GOODS -->
-    <div x-show="showAdjustModal" x-cloak style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div @click.away="showAdjustModal = false" class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <!-- MODAL 6: FAST STOCK ADJUSTMENT FOR FINISHED GOODS -->
+    <div id="finishedAdjustModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-scale-balanced text-blue-600"></i>
                     <span>تسوية رصيد جردي للمنتج التام</span>
                 </h3>
-                <button @click="showAdjustModal = false" onclick="this.closest('.fixed').style.display='none'" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('finishedAdjustModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
             </div>
 
-            <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4">
+            <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4 text-xs">
                 @csrf
                 <input type="hidden" name="item_type" value="product">
-                <input type="hidden" name="item_id" :value="adjustItem.id">
+                <input type="hidden" id="adjust_fg_id" name="item_id" value="">
 
-                <div class="bg-blue-50/60 p-3 rounded-2xl border border-blue-100 space-y-1 text-xs">
-                    <div class="font-bold text-blue-900 text-sm" x-text="adjustItem.name"></div>
+                <div class="bg-blue-50/60 p-3 rounded-2xl border border-blue-100 space-y-1">
+                    <div id="adjust_fg_name" class="font-bold text-blue-900 text-sm"></div>
                     <div class="text-blue-700">
                         الرصيد الدفتري الحالي: 
-                        <span class="font-black text-sm" x-text="adjustItem.current_stock"></span> 
-                        <span x-text="adjustItem.unit"></span>
+                        <span id="adjust_fg_stock" class="font-black text-sm"></span> 
+                        <span id="adjust_fg_unit"></span>
                     </div>
                 </div>
 
-                <div class="space-y-3 text-xs">
+                <div class="space-y-3">
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">الرصيد الفعلي الجديد بعد الجرد *</label>
                         <div class="flex items-center gap-2">
-                            <input type="number" step="1" min="0" name="new_stock" x-model="adjustItem.new_stock" required class="flex-1 text-sm font-black rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500">
-                            <span class="font-bold text-slate-600" x-text="adjustItem.unit"></span>
+                            <input type="number" step="1" min="0" id="adjust_fg_new_stock" name="new_stock" required class="flex-1 text-sm font-black rounded-xl border-slate-200 focus:ring-blue-500 focus:border-blue-500">
+                            <span id="adjust_fg_unit_label" class="font-bold text-slate-600"></span>
                         </div>
                     </div>
 
@@ -682,7 +652,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" @click="showAdjustModal = false" onclick="this.closest('.fixed').style.display='none'" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('finishedAdjustModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
                         إلغاء
                     </button>
                     <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
@@ -695,4 +665,147 @@
     </div>
 
 </div>
+
+<!-- Vanilla JS Modal Controller (100% Fail-Safe, Independent of CDN) -->
+<script>
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+        }
+    }
+
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        }
+    }
+
+    function openFinishedAddModal() {
+        openModal('finishedAddModal');
+    }
+
+    function openFinishedEditModal(btn) {
+        const id = btn.dataset.id;
+        const name = btn.dataset.name;
+        const category = btn.dataset.category;
+        const unit = btn.dataset.unit;
+        const customer = btn.dataset.customer || '';
+        const stock = btn.dataset.stock;
+        const cost = btn.dataset.cost;
+        const selling = btn.dataset.selling;
+        const reorder = btn.dataset.reorder;
+        const packageInfo = btn.dataset.package || '';
+
+        document.getElementById('finishedEditTitle').textContent = name;
+        document.getElementById('finishedEditForm').action = "{{ url('warehouse/finished-goods') }}/" + id;
+        document.getElementById('edit_fg_name').value = name;
+        document.getElementById('edit_fg_category').value = category;
+        document.getElementById('edit_fg_unit').value = unit;
+        document.getElementById('edit_fg_customer').value = customer;
+        document.getElementById('edit_fg_stock').value = stock;
+        document.getElementById('edit_fg_cost').value = cost;
+        document.getElementById('edit_fg_selling').value = selling;
+        document.getElementById('edit_fg_reorder').value = reorder;
+        document.getElementById('edit_fg_package').value = packageInfo;
+
+        openModal('finishedEditModal');
+    }
+
+    function openFinishedAdjustModal(id, name, unit, stock) {
+        document.getElementById('adjust_fg_id').value = id;
+        document.getElementById('adjust_fg_name').textContent = name;
+        document.getElementById('adjust_fg_stock').textContent = stock;
+        document.getElementById('adjust_fg_unit').textContent = unit;
+        document.getElementById('adjust_fg_unit_label').textContent = unit;
+        document.getElementById('adjust_fg_new_stock').value = stock;
+
+        openModal('finishedAdjustModal');
+    }
+
+    function openFinishedPricingModal(id, name, cost, selling) {
+        const modal = document.getElementById('finishedPricingModal');
+        if (!modal) return;
+
+        document.getElementById('pricing_prod_id').value = id;
+        document.getElementById('pricing_prod_name').textContent = name;
+        document.getElementById('pricing_prod_cost').value = cost;
+        document.getElementById('pricing_prod_selling').value = selling;
+        document.getElementById('pricing_prod_cost_label').textContent = Number(cost).toFixed(2);
+        document.getElementById('pricing_prod_factory_label').textContent = (Number(cost) * 1.14).toFixed(2);
+
+        openModal('finishedPricingModal');
+    }
+
+    function calcFactoryPrice() {
+        const cost = parseFloat(document.getElementById('pricing_prod_cost').value) || 0;
+        document.getElementById('pricing_prod_cost_label').textContent = cost.toFixed(2);
+        document.getElementById('pricing_prod_factory_label').textContent = (cost * 1.14).toFixed(2);
+    }
+
+    function openFinishedDispatchModal(btn) {
+        const select = document.getElementById('dispatch_product_select');
+        if (btn) {
+            const id = btn.dataset.id;
+            select.value = id;
+        }
+        onDispatchProductChange(select);
+        openModal('finishedDispatchModal');
+    }
+
+    function onDispatchProductChange(selectEl) {
+        const selected = selectEl.options[selectEl.selectedIndex];
+        if (!selected) return;
+
+        const name = selected.dataset.name || selected.text;
+        const stock = selected.dataset.stock || 0;
+        const unit = selected.dataset.unit || 'قطعة';
+        const price = selected.dataset.price || 0;
+        const customer = selected.dataset.customer || '';
+
+        document.getElementById('dispatch_product_name_label').textContent = name;
+        document.getElementById('dispatch_current_stock_label').textContent = Number(stock).toLocaleString() + ' ' + unit;
+        document.getElementById('dispatch_unit_price').value = price;
+        if (customer) {
+            document.getElementById('dispatch_customer_id').value = customer;
+        }
+        calcDispatchTotal();
+    }
+
+    function calcDispatchTotal() {
+        const qty = parseFloat(document.getElementById('dispatch_quantity').value) || 0;
+        const price = parseFloat(document.getElementById('dispatch_unit_price').value) || 0;
+        const total = qty * price;
+        document.getElementById('dispatch_total_price_label').textContent = total.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' ج.م';
+    }
+
+    function openFinishedZoomModal(src, title) {
+        document.getElementById('finishedZoomImg').src = src;
+        document.getElementById('finishedZoomTitle').textContent = title;
+        openModal('finishedZoomModal');
+    }
+
+    // Backdrop click listener - clicking outside modal dialog closes it immediately
+    window.addEventListener('click', function(e) {
+        document.querySelectorAll('.modal-wrapper').forEach(function(modal) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.classList.add('hidden');
+            }
+        });
+    });
+
+    // Escape key listener closes all modals
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-wrapper').forEach(function(modal) {
+                modal.style.display = 'none';
+                modal.classList.add('hidden');
+            });
+        }
+    });
+</script>
 @endsection
