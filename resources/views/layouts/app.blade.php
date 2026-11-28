@@ -184,10 +184,12 @@
                                 <i class="fa-solid fa-id-card text-red-600"></i>
                                 <span>الملف الشخصي وكلمة المرور</span>
                             </a>
+                            @if(Auth::user()->isOwner() || Auth::user()->isGM() || Auth::user()->email === 'fadi@alphaegypt.com' || Auth::user()->isWipesSupervisor())
                             <a href="{{ route('tasks.index') }}" class="block px-4 py-2 text-xs hover:bg-slate-50 transition flex items-center gap-2">
                                 <i class="fa-solid fa-list-check text-purple-600"></i>
-                                <span>المهام والتكليفات الإضافية</span>
+                                <span>المهام والتكليفات</span>
                             </a>
+                            @endif
                             @if(Auth::user()->isOwner() || Auth::user()->isGM())
                             <a href="{{ route('users.index') }}" class="block px-4 py-2 text-xs hover:bg-slate-50 transition flex items-center gap-2">
                                 <i class="fa-solid fa-users-gear text-slate-700"></i>
@@ -221,6 +223,24 @@
                         <span>داشبورد {{ Auth::user()->role_arabic_name }}</span>
                     </a>
                 </div>
+
+                @if(Auth::user()->isWipesSupervisor())
+                <!-- قسم مخصص لمشرف ماكينة الوايبس فقط (جرجس غطاس) -->
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                        <span>إشراف ماكينة الوايبس</span>
+                        <i class="fa-solid fa-soap text-emerald-500"></i>
+                    </div>
+                    <a href="{{ route('operations.hourlyReports') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('operations.hourlyReports*') ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-clock-rotate-left text-emerald-600"></i>
+                        <span>تقارير ساعات الماكينة</span>
+                    </a>
+                    <a href="{{ route('tasks.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('tasks*') ? 'bg-purple-50 text-purple-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-list-check text-purple-600"></i>
+                        <span>تكليفات ماكينة الوايبس</span>
+                    </a>
+                </div>
+                @endif
 
                 <!-- 1. المبيعات والعملاء -->
                 @if(Auth::user()->isOwner() || Auth::user()->isGM() || Auth::user()->isSales())
@@ -466,6 +486,12 @@
                         <i class="fa-solid fa-oil-can text-orange-600"></i>
                         <span>ماكينات الخطوط وجاهزيتها</span>
                     </a>
+                    @if(Auth::user()->email === 'fadi@alphaegypt.com' || Auth::user()->isMaintenance())
+                    <a href="{{ route('tasks.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('tasks*') ? 'bg-purple-50 text-purple-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-business-time text-purple-600"></i>
+                        <span>تكليفات مكن الجوانتي (عمل إضافي)</span>
+                    </a>
+                    @endif
                 </div>
                 @endif
 
@@ -483,13 +509,6 @@
                     <a href="{{ route('users.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('users*') ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
                         <i class="fa-solid fa-user-shield text-slate-700"></i>
                         <span>إدارة المديرين والموظفين</span>
-                    </a>
-                </div>
-                @else
-                <div class="space-y-1 pt-2 border-t border-slate-100">
-                    <a href="{{ route('tasks.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('tasks*') ? 'bg-purple-50 text-purple-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
-                        <i class="fa-solid fa-list-check text-purple-600"></i>
-                        <span>المهام والتكليفات ومتابعة الماكينات</span>
                     </a>
                 </div>
                 @endif

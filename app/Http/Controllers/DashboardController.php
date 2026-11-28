@@ -17,6 +17,7 @@ use App\Models\RawMaterial;
 use App\Models\SalesOrder;
 use App\Models\StockMovement;
 use App\Models\Supplier;
+use App\Models\TaskAssignment;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -135,6 +136,45 @@ class DashboardController extends Controller
             ));
 
             return view('dashboard.sales', $data);
+        }
+
+        if ($user->isWipesSupervisor()) {
+            // Dedicated Wipes Machine Supervisor Dashboard
+            $wipesMachine = Machine::where('code', 'MCH-WIPES-01')->first() ?? Machine::where('name', 'like', '%وايبس%')->first();
+            $machineId = $wipesMachine?->id;
+
+            $todayReports = HourlyMachineReport::where('machine_id', $machineId)
+                ->whereDate('report_date', $today)
+                ->latest()
+                ->get();
+
+            $totalProducedToday = (float) $todayReports->sum('units_produced');
+            $avgEfficiency = (float) ($todayReports->avg('efficiency_rate') ?? 98.0);
+            $downtimeToday = (int) $todayReports->sum('downtime_minutes');
+            $wasteUnitsToday = (float) $todayReports->sum('waste_units');
+
+            $myTasks = TaskAssignment::where('assigned_to_user_id', $user->id)
+                ->with(['machine', 'followUps'])
+                ->get();
+
+            $wipesProduct = Product::where('code', 'PROD-WIPES-PACK-100')->first();
+            $wipesMaterials = RawMaterial::where('name', 'like', '%وايبس%')
+                ->orWhere('name', 'like', '%معطر%')
+                ->get();
+
+            $data = array_merge($data, compact(
+                'wipesMachine',
+                'todayReports',
+                'totalProducedToday',
+                'avgEfficiency',
+                'downtimeToday',
+                'wasteUnitsToday',
+                'myTasks',
+                'wipesProduct',
+                'wipesMaterials'
+            ));
+
+            return view('dashboard.wipes_supervisor', $data);
         }
 
         if ($user->isOperations()) {

@@ -56,7 +56,12 @@ class User extends Authenticatable
 
     public function isOperations(): bool
     {
-        return $this->role === 'operations';
+        return $this->role === 'operations' && ! $this->isWipesSupervisor();
+    }
+
+    public function isWipesSupervisor(): bool
+    {
+        return $this->role === 'wipes_supervisor' || $this->email === 'gerges.ghatas@alphaegypt.com';
     }
 
     public function isWarehouse(): bool
@@ -95,11 +100,16 @@ class User extends Authenticatable
 
     public function getRoleArabicNameAttribute(): string
     {
+        if ($this->isWipesSupervisor()) {
+            return 'مشرف ماكينة الوايبس والمناديل';
+        }
+
         return match ($this->role) {
             'owner' => 'المالك / صاحب الشركة',
             'gm' => 'المدير العام',
             'sales' => 'مدير المبيعات',
             'operations' => 'مدير التشغيل والإنتاج',
+            'wipes_supervisor' => 'مشرف ماكينة الوايبس والمناديل',
             'warehouse' => 'مدير المخازن',
             'purchasing' => 'مدير المشتريات',
             'finance' => 'مدير الحسابات والمالية',

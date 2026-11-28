@@ -14,16 +14,18 @@ class TaskAssignmentController extends Controller
 {
     public function index(Request $request): View
     {
+        $user = auth()->user();
+        $allowed = $user->isTopManagement() || $user->email === 'fadi@alphaegypt.com' || $user->isWipesSupervisor();
+        if (! $allowed) {
+            abort(403, 'غير مصرح: صفحة التكليفات مخصصة للإدارة العليا ومسؤولي الماكينات المكلفين فقط.');
+        }
+
         $query = TaskAssignment::with(['assignedBy', 'assignedTo', 'machine', 'followUps.user'])
             ->latest();
 
-        // If user is neither owner nor GM, filter to tasks assigned to them or created by them
-        $user = auth()->user();
-        if ($user && ! in_array($user->role, ['owner', 'gm'])) {
-            $query->where(function ($q) use ($user) {
-                $q->where('assigned_to_user_id', $user->id)
-                    ->orWhere('assigned_by_user_id', $user->id);
-            });
+        // If user is neither owner nor GM, filter strictly to tasks assigned to them
+        if (! in_array($user->role, ['owner', 'gm'])) {
+            $query->where('assigned_to_user_id', $user->id);
         }
 
         if ($request->filled('assigned_to')) {
@@ -65,6 +67,10 @@ class TaskAssignmentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (! auth()->user()->isTopManagement()) {
+            abort(403, 'غير مصرح: صلاحية إضافة وتوزيع المهام مقتصرة على الإدارة العليا والمدير العام فقط.');
+        }
+
         $validated = $request->validate([
             'assigned_to_user_id' => 'required|exists:users,id',
             'machine_id' => 'nullable|exists:machines,id',
