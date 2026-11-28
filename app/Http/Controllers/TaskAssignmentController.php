@@ -46,13 +46,19 @@ class TaskAssignmentController extends Controller
 
         $tasks = $query->paginate(15)->withQueryString();
         $employees = User::where('status', true)->orderBy('name')->get();
-        $machines = Machine::orderBy('name')->get();
+        $machines = $user->isWipesSupervisor()
+            ? Machine::where('code', 'MCH-WIPES-01')->get()
+            : Machine::orderBy('name')->get();
 
-        // Metrics
-        $totalTasksCount = TaskAssignment::count();
-        $overtimeCount = TaskAssignment::where('task_type', 'overtime')->count();
-        $inProgressCount = TaskAssignment::where('status', 'in_progress')->count();
-        $completedCount = TaskAssignment::where('status', 'completed')->count();
+        // Metrics scoped to user's visibility
+        $metricsBase = TaskAssignment::query();
+        if (! in_array($user->role, ['owner', 'gm'])) {
+            $metricsBase->where('assigned_to_user_id', $user->id);
+        }
+        $totalTasksCount = (clone $metricsBase)->count();
+        $overtimeCount = (clone $metricsBase)->where('task_type', 'overtime')->count();
+        $inProgressCount = (clone $metricsBase)->where('status', 'in_progress')->count();
+        $completedCount = (clone $metricsBase)->where('status', 'completed')->count();
 
         return view('tasks.index', compact(
             'tasks',

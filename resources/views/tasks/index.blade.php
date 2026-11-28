@@ -270,7 +270,7 @@
                         </div>
                     @else
                         <div class="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-4 text-center text-xs text-slate-400">
-                            لا توجد تقارير متابعة مسجلة حتى الآن. انقر على "تسجيل تقرير متابعة" لإضافة تقرير فني.
+                            لا توجد تقارير متابعة مسجلة حتى الآن. انقر على "تسجيل تقرير متابعة" لإضافة تقرير متابعة إنتاجية أو تشغيل.
                         </div>
                     @endif
                 </div>
@@ -307,7 +307,7 @@
                 @csrf
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">عنوان التكليف أو العمل الإضافي *</label>
-                    <input type="text" name="title" required placeholder="مثال: عمل إضافي: صيانة وضبط ماكينة تقطيع الجوانتيات" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-purple-600 outline-none">
+                    <input type="text" name="title" required placeholder="مثال: عمل إضافي: متابعة إنتاجية ماكينة تقطيع الجوانتيات" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:ring-1 focus:ring-purple-600 outline-none">
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -383,7 +383,7 @@
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-file-waveform text-emerald-600"></i>
-                    <span>تسجيل تقرير متابعة وإنجاز فني</span>
+                    <span>تسجيل تقرير متابعة إنتاجية وتشغيل</span>
                 </h3>
                 <button type="button" onclick="closeFollowUpModal()" class="text-slate-400 hover:text-slate-600">
                     <i class="fa-solid fa-xmark text-lg"></i>
@@ -426,8 +426,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">ملاحظات وتقرير المتابعة الفنية *</label>
-                    <textarea name="notes" rows="3" required placeholder="اكتب نتائج الفحص والمعايرة ومعدل الإنتاج وحالة الماكينة..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-1 focus:ring-emerald-600 outline-none"></textarea>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">ملاحظات وتقرير المتابعة الإنتاجية والتشغيل *</label>
+                    <textarea name="notes" rows="3" required placeholder="اكتب كميات الإنتاج، نسبة الكفاءة، الهدر، وحالة الماكينة..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-1 focus:ring-emerald-600 outline-none"></textarea>
                 </div>
 
                 <div>
@@ -437,7 +437,7 @@
 
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
                     <button type="button" onclick="closeFollowUpModal()" class="px-4 py-2 border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50">إلغاء</button>
-                    <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow">حفظ التقرير الفني</button>
+                    <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow">حفظ تقرير المتابعة</button>
                 </div>
             </form>
         </div>

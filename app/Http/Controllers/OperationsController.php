@@ -357,6 +357,20 @@ class OperationsController extends Controller
             'productionOrder.salesOrder.customer',
         ]);
 
+        $isWipesSupervisor = Auth::user()->isWipesSupervisor();
+        $wipesMachine = $isWipesSupervisor
+            ? (Machine::where('code', 'MCH-WIPES-01')->first() ?? Machine::where('name', 'like', '%وايبس%')->first())
+            : null;
+
+        if ($isWipesSupervisor) {
+            if ($wipesMachine) {
+                $query->where('machine_id', $wipesMachine->id);
+                $machineId = $wipesMachine->id;
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
         if (! empty($dateFrom) && ! empty($dateTo)) {
             $query->whereBetween('report_date', [$dateFrom, $dateTo]);
         } elseif (! empty($dateFrom)) {
@@ -486,7 +500,13 @@ class OperationsController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        $machines = Machine::where('status', '!=', 'scrapped')->with('factory')->get();
+        if ($isWipesSupervisor) {
+            $machines = $wipesMachine
+                ? Machine::where('id', $wipesMachine->id)->with('factory')->get()
+                : collect();
+        } else {
+            $machines = Machine::where('status', '!=', 'scrapped')->with('factory')->get();
+        }
         $factories = Factory::all();
         $products = Product::with('boms.rawMaterial')->get();
         $activeProductionOrders = ProductionOrder::with(['product.boms.rawMaterial', 'salesOrder.customer'])
@@ -625,6 +645,10 @@ class OperationsController extends Controller
         ]);
 
         $machine = Machine::findOrFail($validated['machine_id']);
+
+        if (Auth::user()->isWipesSupervisor() && $machine->code !== 'MCH-WIPES-01') {
+            abort(403, 'غير مصرح: صلاحية مشرف الوايبس مقتصرة على ماكينة المناديل المعطرة والوايبس (MCH-WIPES-01) فقط.');
+        }
         $unitsProduced = (float) $validated['units_produced'];
         $speed = (float) $validated['belt_speed_m_min']; // Machine speed in pieces per minute (قطعة / دقيقة)
         $waste = (float) ($validated['waste_units'] ?? 0);

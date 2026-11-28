@@ -110,6 +110,8 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
 
         $this->assertNotNull($cutTask, 'Glove cutting machine overtime assignment must exist for Fadi Ashraf.');
         $this->assertEquals('in_progress', $cutTask->status);
+        $this->assertStringContainsString('متابعة إنتاجية', $cutTask->title);
+        $this->assertStringNotContainsString('صيانة دورية', $cutTask->title);
         $this->assertTrue($cutTask->followUps()->exists(), 'Cut task must have follow-up reports.');
 
         // Check task for packaging machine
@@ -120,6 +122,8 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
 
         $this->assertNotNull($pckTask, 'Glove packaging machine overtime assignment must exist for Fadi Ashraf.');
         $this->assertEquals('in_progress', $pckTask->status);
+        $this->assertStringContainsString('متابعة إنتاجية', $pckTask->title);
+        $this->assertStringNotContainsString('صيانة دورية', $pckTask->title);
         $this->assertTrue($pckTask->followUps()->exists(), 'Pck task must have follow-up reports.');
     }
 
@@ -149,6 +153,26 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
         $this->assertEquals('supervision', $wipesTask->task_type);
         $this->assertEquals('in_progress', $wipesTask->status);
         $this->assertTrue($wipesTask->followUps()->exists());
+
+        // Hourly reports for Gerges Ghatas should ONLY show MCH-WIPES-01
+        $hourlyResponse = $this->actingAs($this->gergesGhatas)->get(route('operations.hourlyReports'));
+        $hourlyResponse->assertStatus(200);
+        $hourlyResponse->assertSee('MCH-WIPES-01');
+        $hourlyResponse->assertDontSee('MCH-GLV-CUT01');
+
+        // Gerges Ghatas cannot submit hourly report for a non-wipes machine
+        $otherMachine = Machine::where('code', '!=', 'MCH-WIPES-01')->first();
+        if ($otherMachine) {
+            $this->actingAs($this->gergesGhatas)->post(route('operations.hourlyReports.store'), [
+                'machine_id' => $otherMachine->id,
+                'operator_name' => $this->gergesGhatas->name,
+                'report_date' => now()->toDateString(),
+                'shift' => '1',
+                'hour_slot' => '08:00 - 09:00',
+                'units_produced' => 1000,
+                'belt_speed_m_min' => 25,
+            ])->assertStatus(403);
+        }
     }
 
     public function test_tasks_restricted_to_top_management_fadi_and_gerges_only(): void

@@ -238,7 +238,9 @@
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">الماكينة (المكن):</label>
                     <select name="machine_id" class="w-full px-3 py-1.5 border border-slate-200 rounded-xl font-bold focus:ring-1 focus:ring-red-600 outline-none">
-                        <option value="">كافة الماكينات</option>
+                        @if(!Auth::user()->isWipesSupervisor())
+                            <option value="">كافة الماكينات</option>
+                        @endif
                         @foreach($machines as $m)
                             <option value="{{ $m->id }}" {{ $machineId == $m->id ? 'selected' : '' }}>
                                 {{ $m->name }} ({{ $m->code }})

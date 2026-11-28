@@ -100,7 +100,7 @@
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-list-check text-purple-600"></i>
-                <span>التكليف الإداري المباشر لماكينة الوايبس</span>
+                <span>تكليف متابعة إنتاجية ماكينة الوايبس</span>
             </h3>
             <a href="{{ route('tasks.index') }}" class="text-xs font-bold text-purple-600 hover:underline">
                 عرض تفاصيل التكليفات والتقارير →
@@ -124,7 +124,7 @@
 
                     <a href="{{ route('tasks.index') }}" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 self-start">
                         <i class="fa-solid fa-clipboard-check text-xs"></i>
-                        <span>تسجيل تقرير متابعة فني</span>
+                        <span>تسجيل تقرير متابعة إنتاجية</span>
                     </a>
                 </div>
 
