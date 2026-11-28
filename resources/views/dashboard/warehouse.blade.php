@@ -16,7 +16,11 @@
                 إدارة جرد المواد الخام والمنتج التام وقطع الغيار، إصدار وأرشفة سندات الصرف والاستلام القابلة للطباعة، وتوجيه طلبات الشراء للمشتريات عند نقص الأرصدة.
             </p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{{ route('warehouse.inspections.create') }}" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center gap-2">
+                <i class="fa-solid fa-clipboard-check"></i>
+                <span>محضر فحص واستلام</span>
+            </a>
             <a href="{{ route('warehouse.vouchers.create') }}" class="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-xs rounded-xl shadow-lg transition flex items-center gap-2">
                 <i class="fa-solid fa-receipt"></i>
                 <span>إصدار سند صرف / استلام جديد</span>

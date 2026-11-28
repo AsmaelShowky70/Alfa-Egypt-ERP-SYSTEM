@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DailyInventoryCheck;
 use App\Models\ProductionOrder;
 use App\Models\PurchaseOrder;
+use App\Models\ReceivingInspection;
 use App\Models\SalesOrder;
 use App\Models\StockMovement;
 use Illuminate\View\View;
@@ -55,5 +56,12 @@ class PrintController extends Controller
         $order->load(['customer', 'salesRep', 'items.product']);
 
         return view('print.sales_invoice', compact('order'));
+    }
+
+    public function receivingInspection(ReceivingInspection $inspection): View
+    {
+        $inspection->load(['supplier', 'factory', 'purchaseOrder', 'stockMovement', 'warehouseManager', 'items']);
+
+        return view('print.receiving_inspection', compact('inspection'));
     }
 }

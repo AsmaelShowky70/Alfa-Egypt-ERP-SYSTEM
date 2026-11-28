@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\RawMaterial;
+use App\Models\ReceivingInspection;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
@@ -246,5 +247,66 @@ class WarehouseInventoryAuditTest extends TestCase
             'current_stock' => 20,
             'unit_cost' => 500.00,
         ]);
+    }
+
+    /**
+     * 7. Receiving Inspection Report (محضر فحص واستلام)
+     */
+    public function test_warehouse_receiving_inspection_report_workflow(): void
+    {
+        $material = RawMaterial::first();
+        $this->assertNotNull($material);
+        $initialStock = (float) $material->current_stock;
+
+        $this->actingAs($this->warehouseUser)->get(route('warehouse.inspections.index'))->assertStatus(200);
+        $this->actingAs($this->warehouseUser)->get(route('warehouse.inspections.create'))->assertStatus(200);
+
+        $response = $this->actingAs($this->warehouseUser)->post(route('warehouse.inspections.store'), [
+            'inspection_date' => now()->toDateString(),
+            'source_type' => 'supplier',
+            'supplier_invoice_number' => 'INV-9988',
+            'delivered_by' => 'سائق التوريد',
+            'inspector_name' => $this->warehouseUser->name,
+            'quality_member_name' => 'م. جرجس أنور',
+            'add_to_stock' => 1,
+            'notes' => 'فحص دوري للشحنة',
+            'items' => [
+                [
+                    'item_type' => 'raw_material',
+                    'item_id' => $material->id,
+                    'delivered_quantity' => 100,
+                    'accepted_quantity' => 80,
+                    'notes' => 'تم رفض 20 وحدة لتلف التغليف',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        $inspection = ReceivingInspection::latest('id')->first();
+        $this->assertNotNull($inspection);
+        $this->assertEquals('partial', $inspection->overall_status);
+        $this->assertNotNull($inspection->stock_movement_id);
+
+        $this->assertDatabaseHas('receiving_inspection_items', [
+            'receiving_inspection_id' => $inspection->id,
+            'delivered_quantity' => 100,
+            'accepted_quantity' => 80,
+            'rejected_quantity' => 20,
+            'inspection_result' => 'partial',
+        ]);
+
+        // Only accepted quantity (80) added to stock
+        $material->refresh();
+        $this->assertEquals($initialStock + 80, (float) $material->current_stock);
+
+        // Show and print views work
+        $this->actingAs($this->warehouseUser)->get(route('warehouse.inspections.show', $inspection->id))
+            ->assertStatus(200)
+            ->assertSee($inspection->inspection_number);
+
+        $this->actingAs($this->warehouseUser)->get(route('print.receivingInspection', $inspection->id))
+            ->assertStatus(200)
+            ->assertSee('محضر فحص واستلام');
     }
 }

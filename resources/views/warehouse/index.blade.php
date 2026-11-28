@@ -14,7 +14,11 @@
             </h1>
             <p class="text-xs text-slate-500">متابعة أرصدة المواد الخام ومستلزمات الكوڤير والمنتج التام وقطع الغيار وسندات الصرف والاستلام</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('warehouse.inspections.create') }}" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-clipboard-check"></i>
+                <span>محضر فحص واستلام</span>
+            </a>
             <a href="{{ route('warehouse.vouchers.create') }}" class="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
                 <i class="fa-solid fa-receipt"></i>
                 <span>إصدار سند صرف / استلام</span>

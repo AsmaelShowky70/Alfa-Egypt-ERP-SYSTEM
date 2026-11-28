@@ -322,6 +322,10 @@
                         <i class="fa-solid fa-receipt text-amber-600"></i>
                         <span>سندات الاستلام والصرف (طباعة)</span>
                     </a>
+                    <a href="{{ route('warehouse.inspections.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('warehouse.inspections*') ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
+                        <i class="fa-solid fa-clipboard-check text-amber-600"></i>
+                        <span>محاضر فحص واستلام</span>
+                    </a>
                     <a href="{{ route('warehouse.dailyChecks') }}" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition {{ request()->routeIs('warehouse.dailyChecks*') ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-600 hover:bg-slate-50' }}">
                         <i class="fa-solid fa-clipboard-list text-amber-600"></i>
                         <span>الجرد اليومي للمخزن</span>

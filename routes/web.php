@@ -8,6 +8,7 @@ use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\PrintController;
 use App\Http\Controllers\PurchasingController;
+use App\Http\Controllers\ReceivingInspectionController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\TaskAssignmentController;
 use App\Http\Controllers\UserController;
@@ -99,6 +100,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/vouchers/create', [WarehouseController::class, 'createVoucher'])->name('vouchers.create');
         Route::post('/vouchers', [WarehouseController::class, 'storeVoucher'])->name('vouchers.store');
         Route::get('/vouchers/{voucher}', [WarehouseController::class, 'showVoucher'])->name('vouchers.show');
+
+        // Receiving Inspection Reports (محاضر فحص واستلام)
+        Route::get('/receiving-inspections', [ReceivingInspectionController::class, 'index'])->name('inspections.index');
+        Route::get('/receiving-inspections/create', [ReceivingInspectionController::class, 'create'])->name('inspections.create');
+        Route::post('/receiving-inspections', [ReceivingInspectionController::class, 'store'])->name('inspections.store');
+        Route::get('/receiving-inspections/{inspection}', [ReceivingInspectionController::class, 'show'])->name('inspections.show');
 
         Route::get('/daily-checks', [WarehouseController::class, 'dailyChecks'])->name('dailyChecks');
         Route::get('/daily-checks/create', [WarehouseController::class, 'createDailyCheck'])->name('dailyChecks.create');
@@ -203,6 +210,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/purchase-order/{purchaseOrder}', [PrintController::class, 'purchaseOrder'])->name('purchaseOrder');
         Route::get('/daily-check/{dailyCheck}', [PrintController::class, 'dailyInventoryCheck'])->name('dailyCheck');
         Route::get('/sales-invoice/{order}', [PrintController::class, 'salesInvoice'])->name('salesInvoice');
+        Route::get('/receiving-inspection/{inspection}', [PrintController::class, 'receivingInspection'])->name('receivingInspection');
     });
 
     // 10. Task Assignments & Overtime Management (المهام والتكليفات الإضافية وتقارير المتابعة)
