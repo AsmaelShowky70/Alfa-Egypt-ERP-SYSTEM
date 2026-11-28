@@ -228,9 +228,13 @@
                                     @endif
 
                                     <button type="button" 
-                                            onclick="openRawAdjustModal({{ $m->id }}, '{{ addslashes($m->name) }}', '{{ $m->unit }}', {{ (float)$m->current_stock }})" 
+                                            onclick="openRawAdjustModal(this)" 
+                                            data-id="{{ $m->id }}"
+                                            data-name="{{ $m->name }}"
+                                            data-unit="{{ $m->unit }}"
+                                            data-stock="{{ (float)$m->current_stock }}"
                                             title="تسوية رصيد جردي" 
-                                            class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                                            class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer">
                                         <i class="fa-solid fa-scale-balanced"></i>
                                         <span>تسوية</span>
                                     </button>
@@ -515,14 +519,14 @@
     </div>
 
     <!-- MODAL 5: FAST STOCK ADJUSTMENT -->
-    <div id="rawAdjustModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
-        <div class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <div id="rawAdjustModal" onclick="if(event.target === this) closeModal('rawAdjustModal')" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div onclick="event.stopPropagation()" class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 relative">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-scale-balanced text-blue-600"></i>
                     <span>تسوية رصيد جردي للصنف</span>
                 </h3>
-                <button type="button" onclick="closeModal('rawAdjustModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('rawAdjustModal'); event.stopPropagation();" class="text-slate-400 hover:text-slate-700 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition cursor-pointer">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4 text-xs">
@@ -566,10 +570,10 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" onclick="closeModal('rawAdjustModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('rawAdjustModal'); event.stopPropagation();" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
                         إلغاء
                     </button>
-                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer">
                         <i class="fa-solid fa-check-double"></i>
                         <span>اعتماد التسوية وتحديث الرصيد</span>
                     </button>
@@ -591,6 +595,13 @@
     }
 
     function closeModal(modalId) {
+        if (!modalId) {
+            document.querySelectorAll('.modal-wrapper').forEach(function(m) {
+                m.style.display = 'none';
+                m.classList.add('hidden');
+            });
+            return;
+        }
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'none';
@@ -627,13 +638,23 @@
         openModal('rawEditModal');
     }
 
-    function openRawAdjustModal(id, name, unit, stock) {
-        document.getElementById('adjust_rm_id').value = id;
-        document.getElementById('adjust_rm_name').textContent = name;
-        document.getElementById('adjust_rm_stock').textContent = stock;
-        document.getElementById('adjust_rm_unit').textContent = unit;
-        document.getElementById('adjust_rm_unit_label').textContent = unit;
-        document.getElementById('adjust_rm_new_stock').value = stock;
+    function openRawAdjustModal(btnOrId, name, unit, stock) {
+        let idVal = btnOrId;
+        let nameVal = name;
+        let unitVal = unit;
+        let stockVal = stock;
+        if (typeof btnOrId === 'object' && btnOrId !== null && btnOrId.dataset) {
+            idVal = btnOrId.dataset.id;
+            nameVal = btnOrId.dataset.name;
+            unitVal = btnOrId.dataset.unit;
+            stockVal = btnOrId.dataset.stock;
+        }
+        document.getElementById('adjust_rm_id').value = idVal;
+        document.getElementById('adjust_rm_name').textContent = nameVal || 'الصنف غير محدد';
+        document.getElementById('adjust_rm_stock').textContent = Number(stockVal || 0).toLocaleString();
+        document.getElementById('adjust_rm_unit').textContent = unitVal || '';
+        document.getElementById('adjust_rm_unit_label').textContent = unitVal || '';
+        document.getElementById('adjust_rm_new_stock').value = stockVal || 0;
 
         openModal('rawAdjustModal');
     }
@@ -656,7 +677,7 @@
         openModal('rawZoomModal');
     }
 
-    // Backdrop click listener - clicking outside modal dialog closes it immediately
+    // Global backdrop click listener - clicking outside modal dialog closes it immediately
     window.addEventListener('click', function(e) {
         document.querySelectorAll('.modal-wrapper').forEach(function(modal) {
             if (e.target === modal) {
@@ -669,10 +690,7 @@
     // Escape key listener closes all modals
     window.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            document.querySelectorAll('.modal-wrapper').forEach(function(modal) {
-                modal.style.display = 'none';
-                modal.classList.add('hidden');
-            });
+            closeModal();
         }
     });
 </script>

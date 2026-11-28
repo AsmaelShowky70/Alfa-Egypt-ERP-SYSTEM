@@ -140,9 +140,13 @@
                                     </button>
 
                                     <button type="button" 
-                                            onclick="openAdjustSpareModal({{ $sp->id }}, '{{ addslashes($sp->name) }}', '{{ $sp->unit }}', {{ (float)$sp->current_stock }})"
+                                            onclick="openAdjustSpareModal(this)"
+                                            data-id="{{ $sp->id }}"
+                                            data-name="{{ $sp->name }}"
+                                            data-unit="{{ $sp->unit }}"
+                                            data-stock="{{ (float)$sp->current_stock }}"
                                             title="تسوية رصيد جردي"
-                                            class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
+                                            class="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer">
                                         <i class="fa-solid fa-scale-balanced"></i>
                                     </button>
                                 </div>
@@ -312,14 +316,14 @@
     </div>
 
     <!-- MODAL 3: ADJUST STOCK -->
-    <div id="adjustSpareStockModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
-        <div class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <div id="adjustSpareStockModal" onclick="if(event.target === this) closeModal('adjustSpareStockModal')" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div onclick="event.stopPropagation()" class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 relative">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-scale-balanced text-emerald-600"></i>
                     <span>تسوية رصيد جردي لقطعة الغيار</span>
                 </h3>
-                <button type="button" onclick="closeModal('adjustSpareStockModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('adjustSpareStockModal'); event.stopPropagation();" class="text-slate-400 hover:text-slate-700 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition cursor-pointer">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4 text-xs">
@@ -363,10 +367,10 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" onclick="closeModal('adjustSpareStockModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('adjustSpareStockModal'); event.stopPropagation();" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
                         إلغاء
                     </button>
-                    <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                    <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer">
                         <i class="fa-solid fa-check-double"></i>
                         <span>اعتماد تسوية الرصيد</span>
                     </button>
@@ -401,6 +405,13 @@
     }
 
     function closeModal(modalId) {
+        if (!modalId) {
+            document.querySelectorAll('.modal-wrapper').forEach(function(m) {
+                m.style.display = 'none';
+                m.classList.add('hidden');
+            });
+            return;
+        }
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'none';
@@ -435,13 +446,23 @@
         openModal('editSpareModal');
     }
 
-    function openAdjustSpareModal(id, name, unit, stock) {
-        document.getElementById('adjust_sp_id').value = id;
-        document.getElementById('adjust_sp_name').textContent = name;
-        document.getElementById('adjust_sp_stock').textContent = stock;
-        document.getElementById('adjust_sp_unit').textContent = unit;
-        document.getElementById('adjust_sp_unit_label').textContent = unit;
-        document.getElementById('adjust_sp_new_stock').value = stock;
+    function openAdjustSpareModal(btnOrId, name, unit, stock) {
+        let idVal = btnOrId;
+        let nameVal = name;
+        let unitVal = unit;
+        let stockVal = stock;
+        if (typeof btnOrId === 'object' && btnOrId !== null && btnOrId.dataset) {
+            idVal = btnOrId.dataset.id;
+            nameVal = btnOrId.dataset.name;
+            unitVal = btnOrId.dataset.unit;
+            stockVal = btnOrId.dataset.stock;
+        }
+        document.getElementById('adjust_sp_id').value = idVal;
+        document.getElementById('adjust_sp_name').textContent = nameVal || 'قطعة الغيار';
+        document.getElementById('adjust_sp_stock').textContent = Number(stockVal || 0).toLocaleString();
+        document.getElementById('adjust_sp_unit').textContent = unitVal || 'قطعة';
+        document.getElementById('adjust_sp_unit_label').textContent = unitVal || 'قطعة';
+        document.getElementById('adjust_sp_new_stock').value = stockVal || 0;
 
         openModal('adjustSpareStockModal');
     }

@@ -10,10 +10,13 @@ use App\Models\PurchaseOrder;
 use App\Models\SalesOrder;
 use App\Models\Supplier;
 use App\Models\User;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class FinanceAccountingDeepTest extends TestCase
 {
+    use DatabaseTransactions;
+
     protected User $financeUser;
 
     protected User $ownerUser;

@@ -199,8 +199,12 @@
                         </button>
 
                         <button type="button" 
-                                onclick="openFinishedAdjustModal({{ $p->id }}, '{{ addslashes($p->name) }}', '{{ $p->unit }}', {{ (float)$p->current_stock }})"
-                                class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+                                onclick="openFinishedAdjustModal(this)"
+                                data-id="{{ $p->id }}"
+                                data-name="{{ $p->name }}"
+                                data-unit="{{ $p->unit }}"
+                                data-stock="{{ (float)$p->current_stock }}"
+                                class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer">
                             <i class="fa-solid fa-scale-balanced"></i>
                             <span>تسوية</span>
                         </button>
@@ -602,14 +606,14 @@
     </div>
 
     <!-- MODAL 6: FAST STOCK ADJUSTMENT FOR FINISHED GOODS -->
-    <div id="finishedAdjustModal" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
-        <div class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+    <div id="finishedAdjustModal" onclick="if(event.target === this) closeModal('finishedAdjustModal')" class="modal-wrapper fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" style="display: none;">
+        <div onclick="event.stopPropagation()" class="modal-dialog bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 relative">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
                     <i class="fa-solid fa-scale-balanced text-blue-600"></i>
                     <span>تسوية رصيد جردي للمنتج التام</span>
                 </h3>
-                <button type="button" onclick="closeModal('finishedAdjustModal')" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                <button type="button" onclick="closeModal('finishedAdjustModal'); event.stopPropagation();" class="text-slate-400 hover:text-slate-700 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition cursor-pointer">✕</button>
             </div>
 
             <form method="POST" action="{{ route('warehouse.adjustStock') }}" class="space-y-4 text-xs">
@@ -652,10 +656,10 @@
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button type="button" onclick="closeModal('finishedAdjustModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <button type="button" onclick="closeModal('finishedAdjustModal'); event.stopPropagation();" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
                         إلغاء
                     </button>
-                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md">
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer">
                         <i class="fa-solid fa-check-double"></i>
                         <span>اعتماد تسوية الرصيد</span>
                     </button>
@@ -677,6 +681,13 @@
     }
 
     function closeModal(modalId) {
+        if (!modalId) {
+            document.querySelectorAll('.modal-wrapper').forEach(function(m) {
+                m.style.display = 'none';
+                m.classList.add('hidden');
+            });
+            return;
+        }
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'none';
@@ -701,7 +712,7 @@
         const packageInfo = btn.dataset.package || '';
 
         document.getElementById('finishedEditTitle').textContent = name;
-        document.getElementById('finishedEditForm').action = "{{ url('warehouse/finished-goods') }}/" + id;
+        document.getElementById('edit_fg_form').action = "{{ url('warehouse/finished-goods') }}/" + id;
         document.getElementById('edit_fg_name').value = name;
         document.getElementById('edit_fg_category').value = category;
         document.getElementById('edit_fg_unit').value = unit;
@@ -715,13 +726,23 @@
         openModal('finishedEditModal');
     }
 
-    function openFinishedAdjustModal(id, name, unit, stock) {
-        document.getElementById('adjust_fg_id').value = id;
-        document.getElementById('adjust_fg_name').textContent = name;
-        document.getElementById('adjust_fg_stock').textContent = stock;
-        document.getElementById('adjust_fg_unit').textContent = unit;
-        document.getElementById('adjust_fg_unit_label').textContent = unit;
-        document.getElementById('adjust_fg_new_stock').value = stock;
+    function openFinishedAdjustModal(btnOrId, name, unit, stock) {
+        let idVal = btnOrId;
+        let nameVal = name;
+        let unitVal = unit;
+        let stockVal = stock;
+        if (typeof btnOrId === 'object' && btnOrId !== null && btnOrId.dataset) {
+            idVal = btnOrId.dataset.id;
+            nameVal = btnOrId.dataset.name;
+            unitVal = btnOrId.dataset.unit;
+            stockVal = btnOrId.dataset.stock;
+        }
+        document.getElementById('adjust_fg_id').value = idVal;
+        document.getElementById('adjust_fg_name').textContent = nameVal || 'المنتج التام غير محدد';
+        document.getElementById('adjust_fg_stock').textContent = Number(stockVal || 0).toLocaleString();
+        document.getElementById('adjust_fg_unit').textContent = unitVal || 'قطعة';
+        document.getElementById('adjust_fg_unit_label').textContent = unitVal || 'قطعة';
+        document.getElementById('adjust_fg_new_stock').value = stockVal || 0;
 
         openModal('finishedAdjustModal');
     }

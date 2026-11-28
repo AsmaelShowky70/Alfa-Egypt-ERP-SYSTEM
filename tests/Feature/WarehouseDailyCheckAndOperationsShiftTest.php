@@ -7,10 +7,13 @@ use App\Models\Machine;
 use App\Models\Product;
 use App\Models\RawMaterial;
 use App\Models\User;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class WarehouseDailyCheckAndOperationsShiftTest extends TestCase
 {
+    use DatabaseTransactions;
+
     public function test_warehouse_daily_checks_create_page_renders_with_real_items_and_kpis(): void
     {
         $warehouseManager = User::where('role', 'warehouse')->first() ?? User::factory()->create(['role' => 'warehouse']);
