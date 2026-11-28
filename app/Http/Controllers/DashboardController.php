@@ -200,6 +200,19 @@ class DashboardController extends Controller
                 ->take(10)
                 ->get();
 
+            // Delegated Production Lines metrics (تخفيف العبء عن مدير التشغيل)
+            $gloveCutMachine = Machine::where('code', 'MCH-GLV-CUT01')->first();
+            $glovePckMachine = Machine::where('code', 'MCH-GLV-PCK01')->first();
+            $wipesMachine = Machine::where('code', 'MCH-WIPES-01')->first();
+
+            $fadiGloveTodayUnits = (float) HourlyMachineReport::whereIn('machine_id', array_filter([$gloveCutMachine?->id, $glovePckMachine?->id]))
+                ->whereDate('report_date', $today)
+                ->sum('units_produced');
+
+            $gergesWipesTodayUnits = (float) HourlyMachineReport::where('machine_id', $wipesMachine?->id)
+                ->whereDate('report_date', $today)
+                ->sum('units_produced');
+
             $data = array_merge($data, compact(
                 'activeWorkOrders',
                 'todayProducedUnits',
@@ -207,7 +220,12 @@ class DashboardController extends Controller
                 'todayDowntimeMinutes',
                 'machines',
                 'pendingOrdersForScheduling',
-                'hourlyReportsToday'
+                'hourlyReportsToday',
+                'gloveCutMachine',
+                'glovePckMachine',
+                'wipesMachine',
+                'fadiGloveTodayUnits',
+                'gergesWipesTodayUnits'
             ));
 
             return view('dashboard.operations', $data);
@@ -334,6 +352,26 @@ class DashboardController extends Controller
                 ->take(8)
                 ->get();
 
+            // Glove Machines Delegated Production Overtime (عمل إضافي تشغيلي لمتابعة إنتاج الجوانتي وتخفيف العبء عن مدير التشغيل)
+            $gloveCutMachine = Machine::where('code', 'MCH-GLV-CUT01')->first();
+            $glovePckMachine = Machine::where('code', 'MCH-GLV-PCK01')->first();
+            $gloveMachineIds = array_filter([$gloveCutMachine?->id, $glovePckMachine?->id]);
+
+            $gloveHourlyReportsToday = HourlyMachineReport::with(['machine'])
+                ->whereIn('machine_id', $gloveMachineIds)
+                ->whereDate('report_date', $today)
+                ->latest()
+                ->get();
+
+            $gloveCuttingUnitsToday = (float) $gloveHourlyReportsToday->where('machine_id', $gloveCutMachine?->id)->sum('units_produced');
+            $glovePackingUnitsToday = (float) $gloveHourlyReportsToday->where('machine_id', $glovePckMachine?->id)->sum('units_produced');
+            $gloveAvgEfficiency = (float) ($gloveHourlyReportsToday->avg('efficiency_rate') ?? 97.5);
+            $gloveDowntimeToday = (int) $gloveHourlyReportsToday->sum('downtime_minutes');
+
+            $gloveTasks = TaskAssignment::where('assigned_to_user_id', $user->id)
+                ->with(['machine', 'followUps'])
+                ->get();
+
             $data = array_merge($data, compact(
                 'machines',
                 'totalMachines',
@@ -341,7 +379,15 @@ class DashboardController extends Controller
                 'maintenanceDueMachines',
                 'spareParts',
                 'lowSpareParts',
-                'recentDowntimeReports'
+                'recentDowntimeReports',
+                'gloveCutMachine',
+                'glovePckMachine',
+                'gloveHourlyReportsToday',
+                'gloveCuttingUnitsToday',
+                'glovePackingUnitsToday',
+                'gloveAvgEfficiency',
+                'gloveDowntimeToday',
+                'gloveTasks'
             ));
 
             return view('dashboard.maintenance', $data);

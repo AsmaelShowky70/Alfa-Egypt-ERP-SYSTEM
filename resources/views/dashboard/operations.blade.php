@@ -71,6 +71,68 @@
         </div>
     </div>
 
+    <!-- خطوط الإنتاج المفوضة لتخفيف العبء التشغيلي -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-200/60 pb-3">
+            <div class="flex items-center gap-2">
+                <span class="p-2 bg-blue-600 text-white rounded-xl text-sm shadow-sm">
+                    <i class="fa-solid fa-users-gear"></i>
+                </span>
+                <div>
+                    <h2 class="text-base font-black text-slate-900">متابعة الخطوط المفوضة (لتخفيف العبء عن مدير التشغيل)</h2>
+                    <p class="text-xs text-slate-600">تم تفويض متابعة إنتاج الجوانتي والوايبس لمهندسين ومشرفين لمتابعة الإنتاج الفعلي وتقارير الساعات</p>
+                </div>
+            </div>
+            <span class="px-3 py-1 bg-white border border-blue-200 text-blue-700 text-xs font-bold rounded-xl shadow-sm self-start">
+                خطين مفوضين نشطين
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- كارت خط الجوانتيات - فادي أشرف -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            عمل إضافي تشغيلي
+                        </span>
+                        <h3 class="font-black text-sm text-slate-900 mt-1.5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-hand-holding-hand text-amber-600"></i>
+                            <span>خط إنتاج الجوانتي (قص MCH-GLV-CUT01 + تغليف PCK01)</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-500 mt-0.5">المسؤول المفوض: <b>فادي أشرف</b> (متابعة الإنتاج والباكت والسرعات)</p>
+                    </div>
+                    <span class="text-xl font-black text-amber-700 font-mono">{{ number_format($fadiGloveTodayUnits) }} <span class="text-xs font-normal text-slate-400">قطعة اليوم</span></span>
+                </div>
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span class="text-slate-500">الحالة: <b class="text-emerald-700">يعمل تحت إشراف فادي أشرف</b></span>
+                    <a href="{{ route('operations.hourlyReports') }}" class="font-bold text-blue-600 hover:underline">سجل تقارير الساعات ←</a>
+                </div>
+            </div>
+
+            <!-- كارت خط الوايبس - جرجس غطاس -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm space-y-3">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            مشرف خط مخصص
+                        </span>
+                        <h3 class="font-black text-sm text-slate-900 mt-1.5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-soap text-emerald-600"></i>
+                            <span>خط إنتاج المناديل المعطرة والوايبس (MCH-WIPES-01)</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-500 mt-0.5">المشرف المفوض: <b>جرجس غطاس</b> (متابعة التدفق، جودة الفويل، ونسب الهدر)</p>
+                    </div>
+                    <span class="text-xl font-black text-emerald-700 font-mono">{{ number_format($gergesWipesTodayUnits) }} <span class="text-xs font-normal text-slate-400">منديل اليوم</span></span>
+                </div>
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span class="text-slate-500">الحالة: <b class="text-emerald-700">يعمل تحت إشراف جرجس غطاس</b></span>
+                    <a href="{{ route('operations.hourlyReports') }}" class="font-bold text-blue-600 hover:underline">سجل تقارير الساعات ←</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Incoming Orders from Sales Awaiting Operations Scheduling & Material Check -->
     <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">

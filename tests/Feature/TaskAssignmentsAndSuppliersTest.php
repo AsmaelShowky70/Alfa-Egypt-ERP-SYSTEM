@@ -197,4 +197,24 @@ class TaskAssignmentsAndSuppliersTest extends TestCase
         $response->assertSee('جرجس غطاس');
         $response->assertDontSee('فؤاد عبد الملك');
     }
+
+    public function test_delegated_production_monitoring_in_operations_and_maintenance_dashboards(): void
+    {
+        $opsManager = User::where('role', 'operations')->where('email', '!=', 'gerges.ghatas@alphaegypt.com')->first();
+        $this->assertNotNull($opsManager);
+
+        // 1. Operations Manager Dashboard shows delegated production lines to relieve burden
+        $opsDash = $this->actingAs($opsManager)->get(route('dashboard'));
+        $opsDash->assertStatus(200);
+        $opsDash->assertSee('متابعة الخطوط المفوضة (لتخفيف العبء عن مدير التشغيل)');
+        $opsDash->assertSee('فادي أشرف');
+        $opsDash->assertSee('جرجس غطاس');
+
+        // 2. Fadi Ashraf Maintenance Dashboard shows Glove production monitoring overtime
+        $fadiDash = $this->actingAs($this->fadi)->get(route('dashboard'));
+        $fadiDash->assertStatus(200);
+        $fadiDash->assertSee('متابعة تشغيل وإنتاجية ماكينات الجوانتي');
+        $fadiDash->assertSee('MCH-GLV-CUT01');
+        $fadiDash->assertSee('MCH-GLV-PCK01');
+    }
 }

@@ -20,12 +20,12 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                            مشرف خط مخصص
+                            متابعة إنتاج وتشغيل (بتكليف من مدير التشغيل)
                         </span>
                         <span class="text-xs text-slate-300 font-mono">{{ $wipesMachine?->code ?? 'MCH-WIPES-01' }}</span>
                     </div>
                     <h1 class="text-2xl font-black text-white mt-1">{{ Auth::user()->name }}</h1>
-                    <p class="text-xs text-emerald-200 mt-0.5">مشرف تشغيل ومتابعة: {{ $wipesMachine?->name ?? 'ماكينة المناديل المعطرة والوايبس الأوتوماتيكية' }}</p>
+                    <p class="text-xs text-emerald-200 mt-0.5">متابعة الإنتاج اليومي وتدفق المحلول والهدر: {{ $wipesMachine?->name ?? 'ماكينة المناديل المعطرة والوايبس الأوتوماتيكية' }}</p>
                 </div>
             </div>
 
